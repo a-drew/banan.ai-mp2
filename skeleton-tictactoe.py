@@ -56,10 +56,10 @@ class Game:
             for x in range(self.n):
                 for bloc in self.blocs:
                     if type(bloc) is str or (type(bloc) is tuple and type(bloc[0]) is str):
-                        bloc = (self.LETTERS.index(bloc[0].upper()), int(bloc[1]))
+                        bloc = (ord(bloc[0].upper()) - 65, int(bloc[1]))
                     if type(bloc) is tuple and type(bloc[1]) is str:
                         # I don't like the weird (2, 'D') syntax so let's invert it back
-                        bloc = (self.LETTERS.index(bloc[1].upper()), int(bloc[0]))
+                        bloc = (ord(bloc[1].upper()) - 65, int(bloc[0]))
                     # inverted for check, but api supports (x,y) or 'XY' or ('X', y) or (y, 'X')
                     if bloc == (y, x):
                         row.append('*')
@@ -138,7 +138,7 @@ class Game:
     def input_move(self):
         while True:
             word = [c for c in input(F'Player {self.player_turn}, enter your move:')]
-            px = self.LETTERS.index(word[0].upper())
+            px = ord(word[0].upper()) - 65  # ascii
             py = int(word[1])
 
             if self.is_valid(px, py):

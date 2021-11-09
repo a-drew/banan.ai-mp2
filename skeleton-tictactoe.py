@@ -4,38 +4,92 @@ import time
 
 
 class Game:
+    LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J']
     MINIMAX = 0
     ALPHABETA = 1
     HUMAN = 2
     AI = 3
 
-    def __init__(self, recommend=True):
+    # (a) the n of the board – n – an integer in [3..10]
+    # (b) the number of blocs – b – an integer in [0..2n]
+    # (c) the positions of the blocs – b board coordinates
+    # (d) the winning line-up n – s – an integer in [3..n]
+    # (e) the maximum depth of the adversarial search for player 1 and for player 2 – 2 integers d1 and d2
+    # (f) the maximum allowed time (in seconds) for your program to return a move – t
+    # Your AI should not take more than t seconds to return its move. If it does, your AI will automatically
+    # lose the game. This entails that even if your adversarial search is allowed to go to a depth of d in the
+    # game tree, it may not have time to do so every time. Your program must monitor the time, and if not
+    # enough time is left to explore all the states at depth d, it must interrupt its search at depth d and
+    # return values for the remaining states quickly before time is up.
+    # (g) a Boolean to force the use of either minimax (FALSE) or alphabeta (TRUE) – a
+    # (h) the play modes, didn't add since w=they are controlled directly in Game.play()
+    # Your program should be able to make either player be a human or the AI. This means that you should
+    # be able to run your program in all 4 combinations of players: H-H, H-AI, AI-H and AI-AI
+
+    def __init__(self, n=3, b=0, s=3, blocs=None, a=None, d1=1, d2=1, t=1000, recommend=True):
+        self.n = n  # size of board
+        self.s = s  # size of winning line
+        self.b = b  # size of blocs
+        self.blocs = [] if blocs is None else blocs
+        self.a = a  # force algorithm, None / True: AlphaBeta, False: MiniMax
+        self.d1 = d1  # p1 search depth
+        self.d2 = d2  # p2 search depth
+        self.t = t    # search timeout
+        self.recommend = recommend  # recommend human moves
         self.initialize_game()
-        self.recommend = recommend
+
+    def validate(self):
+        if self.n > 10 or self.n < 3:
+            raise Exception("Invalid board size")
+        if self.b != len(self.blocs):
+            self.b = len(self.blocs)
+        if self.b > 2 * self.n:
+            raise Exception("Too many blocs")
+        if self.s > self.n:
+            raise Exception("Invalid size of winning line")
 
     def initialize_game(self):
-        self.current_state = [['.', '.', '.'],
-                              ['.', '.', '.'],
-                              ['.', '.', '.']]
+        self.validate()
+        board = []
+        for y in range(self.n):
+            row = []
+            for x in range(self.n):
+                for bloc in self.blocs:
+                    if type(bloc) is str or (type(bloc) is tuple and type(bloc[0]) is str):
+                        bloc = (self.LETTERS.index(bloc[0].upper()), int(bloc[1]))
+                    if type(bloc) is tuple and type(bloc[1]) is str:
+                        # I don't like the weird (2, 'D') syntax so let's invert it back
+                        bloc = (self.LETTERS.index(bloc[1].upper()), int(bloc[0]))
+                    # inverted for check, but api supports (x,y) or 'XY' or ('X', y) or (y, 'X')
+                    if bloc == (y, x):
+                        row.append('*')
+                        break
+                else:
+                    row.append('.')
+            board.append(row)
         # Player X always plays first
+        self.current_state = board
         self.player_turn = 'X'
 
     def draw_board(self):
-        print()
-        for y in range(0, 3):
-            for x in range(0, 3):
+        print("  " + "".join(self.LETTERS[:self.n]))
+        print(" +" + "".join(['-' for x in range(self.n)]))
+        for y in range(self.n):
+            print(F'{y}|', end="")
+            for x in range(self.n):
                 print(F'{self.current_state[x][y]}', end="")
             print()
         print()
 
     def is_valid(self, px, py):
-        if px < 0 or px > 2 or py < 0 or py > 2:
+        if px < 0 or px >= self.n or py < 0 or py >= self.n:
             return False
         elif self.current_state[px][py] != '.':
             return False
         else:
             return True
 
+    # TODO: FIX WIN CONDITIONS FOR NEW GAME, this only work for 3x3 no blocs
     def is_end(self):
         # Vertical win
         for i in range(0, 3):
@@ -44,10 +98,10 @@ class Game:
                     self.current_state[1][i] == self.current_state[2][i]):
                 return self.current_state[0][i]
         # Horizontal win
-        for i in range(0, 3):
-            if (self.current_state[i] == ['X', 'X', 'X']):
+        for y in range(self.n):
+            if self.current_state[y] == ['X' for x in range(self.n)]:
                 return 'X'
-            elif (self.current_state[i] == ['O', 'O', 'O']):
+            elif self.current_state[y] == ['O' for x in range(self.n)]:
                 return 'O'
         # Main diagonal win
         if (self.current_state[0][0] != '.' and
@@ -60,8 +114,8 @@ class Game:
                 self.current_state[0][2] == self.current_state[2][0]):
             return self.current_state[0][2]
         # Is whole board full?
-        for i in range(0, 3):
-            for j in range(0, 3):
+        for i in range(self.n):
+            for j in range(self.n):
                 # There's an empty field, we continue the game
                 if (self.current_state[i][j] == '.'):
                     return None
@@ -83,9 +137,10 @@ class Game:
 
     def input_move(self):
         while True:
-            print(F'Player {self.player_turn}, enter your move:')
-            px = int(input('enter the x coordinate: '))
-            py = int(input('enter the y coordinate: '))
+            word = [c for c in input(F'Player {self.player_turn}, enter your move:')]
+            px = self.LETTERS.index(word[0].upper())
+            py = int(word[1])
+
             if self.is_valid(px, py):
                 return (px, py)
             else:
@@ -117,8 +172,8 @@ class Game:
             return (1, x, y)
         elif result == '.':
             return (0, x, y)
-        for i in range(0, 3):
-            for j in range(0, 3):
+        for i in range(self.n):
+            for j in range(self.n):
                 if self.current_state[i][j] == '.':
                     if max:
                         self.current_state[i][j] = 'O'
@@ -156,8 +211,8 @@ class Game:
             return (1, x, y)
         elif result == '.':
             return (0, x, y)
-        for i in range(0, 3):
-            for j in range(0, 3):
+        for i in range(self.n):
+            for j in range(self.n):
                 if self.current_state[i][j] == '.':
                     if max:
                         self.current_state[i][j] = 'O'
@@ -187,8 +242,11 @@ class Game:
         return (value, x, y)
 
     def play(self, algo=None, player_x=None, player_o=None):
-        if algo == None:
+        # self.a allows for override of algo
+        if algo == None or self.a == True:
             algo = self.ALPHABETA
+        if self.a == False:
+            algo = self.MINIMAX
         if player_x == None:
             player_x = self.HUMAN
         if player_o == None:
@@ -213,11 +271,14 @@ class Game:
                     self.player_turn == 'O' and player_o == self.HUMAN):
                 if self.recommend:
                     print(F'Evaluation time: {round(end - start, 7)}s')
-                    print(F'Recommended move: x = {x}, y = {y}')
+                    print(F'Recommended move: {self.LETTERS[x]}{y}')
                 (x, y) = self.input_move()
             if (self.player_turn == 'X' and player_x == self.AI) or (self.player_turn == 'O' and player_o == self.AI):
                 print(F'Evaluation time: {round(end - start, 7)}s')
-                print(F'Player {self.player_turn} under AI control plays: x = {x}, y = {y}')
+                if player_x == self.HUMAN or player_o == self.HUMAN:
+                    print(F'Player {self.player_turn} under AI control plays: {self.LETTERS[x]}{y}')
+                else:
+                    print(F'Player {self.player_turn} under AI control plays: x = {x}, y = {y}')
             self.current_state[x][y] = self.player_turn
             self.switch_player()
 

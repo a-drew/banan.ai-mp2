@@ -1,3 +1,5 @@
+#!/usr/bin/env pypy3
+
 # based on code from https://stackabuse.com/minimax-and-alpha-beta-pruning-in-python
 
 import time

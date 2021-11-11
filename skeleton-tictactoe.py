@@ -3,7 +3,7 @@
 # based on code from https://stackabuse.com/minimax-and-alpha-beta-pruning-in-python
 
 import time
-
+import sys
 
 class Game:
     LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J']
@@ -286,10 +286,71 @@ class Game:
 
 
 def main():
-    g = Game(recommend=True)
-    g.play(algo=Game.ALPHABETA, player_x=Game.AI, player_o=Game.AI)
-    g.play(algo=Game.MINIMAX, player_x=Game.AI, player_o=Game.HUMAN)
 
+    USAGE = 'Either run directly for default parameters: ./lineEmUp.py'
+    USAGE += '\nOr with custom parameters: ./lineEmUp.py [-r] -x:[h|a] -y:[h|a] [-a:[a|m]]'
+
+    #@TODO: add prompt to choose game type
+    if len(sys.argv) == 1:
+        g = Game(recommend=True)
+        g.play(algo=Game.ALPHABETA, player_x=Game.AI, player_o=Game.AI)
+        g.play(algo=Game.MINIMAX, player_x=Game.AI, player_o=Game.HUMAN)
+    elif len(sys.argv) >= 1:
+        if sys.argv[1] == '-h' or sys.argv[1] == '--help':
+            print(USAGE)
+
+        recommend = False
+        args_present = [False, False, False]
+        player_x = player_y = algo = None
+
+        for arg in sys.argv:
+            # show recommended moves?
+            if '-r' in arg:
+                recommend = True
+            # set player X
+            if '-x:' in arg:
+                args_present[0] = True
+                player_type_x = arg.split(':')
+                
+                if player_type_x[1] == 'h':
+                    player_x = Game.HUMAN
+                elif player_type_x[1] == 'a':
+                    player_x = Game.AI
+                else:
+                    print('Illegal option for player X type')
+                    sys.exit(0)
+            # set player O
+            if '-o:' in arg:
+                args_present[1] = True
+                player_type_o = arg.split(':')
+
+                if player_type_o[1] == 'h':
+                    player_o = Game.HUMAN
+                elif player_type_o[1] == 'a':
+                    player_o = Game.AI
+                else:
+                    print('Illegal option for player O type')
+                    sys.exit(0)
+            if '-a:' in arg:
+                args_present[2] = True
+                algo_type = arg.split(':')[1]
+
+                if algo_type == 'a':
+                    algo = Game.ALPHABETA
+                elif algo_type == 'm':
+                    algo = Game.MINIMAX
+
+        if player_x == Game.HUMAN and player_o == Game.HUMAN:
+            args_present[2] = True
+
+        for present in args_present:
+            if not present:
+                print('Missing required parameters')
+                sys.exit(0)
+
+        g = Game(recommend=recommend)
+        g.play(algo=algo, player_x=player_x, player_o=player_o)
+        
 
 if __name__ == "__main__":
     main()

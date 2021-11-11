@@ -301,8 +301,7 @@ def main():
 
         recommend = False
         args_present = [False, False, False]
-        player_x = player_y = None
-        algo = Game.ALPHABETA
+        player_x = player_y = algo = None
 
         for arg in sys.argv:
             # show recommended moves?

@@ -288,7 +288,7 @@ class Game:
 def main():
 
     USAGE = 'Either run directly for default parameters: ./lineEmUp.py'
-    USAGE += '\nOr with custom parameters: ./lineEmUp.py [-r] -x:[h|a] -y:[h|a] [-a:[a|m]]'
+    USAGE += '\nOr with custom parameters: ./lineEmUp.py [-r] -x:[h|a] -o:[h|a] [-a:[a|m]]'
 
     #@TODO: add prompt to choose game type
     if len(sys.argv) == 1:
@@ -301,7 +301,8 @@ def main():
 
         recommend = False
         args_present = [False, False, False]
-        player_x = player_y = algo = None
+        player_x = player_y = None
+        algo = Game.ALPHABETA
 
         for arg in sys.argv:
             # show recommended moves?

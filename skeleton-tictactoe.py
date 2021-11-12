@@ -91,30 +91,84 @@ class Game:
         else:
             return True
 
-    # TODO: FIX WIN CONDITIONS FOR NEW GAME, this only work for 3x3 no blocs
+    # TODO: verify (5+ board slow af), clean up / reuse code, move on to writing heuristics + limiting depth and time
     def is_end(self):
         # Vertical win
-        for i in range(0, 3):
-            if (self.current_state[0][i] != '.' and
-                    self.current_state[0][i] == self.current_state[1][i] and
-                    self.current_state[1][i] == self.current_state[2][i]):
-                return self.current_state[0][i]
+        for x in range(self.n):
+            prev = 'N'
+            count = 1
+            for y in range(self.n):
+                current = self.current_state[y][x]
+                if current == prev:
+                    count += 1
+                else:
+                    count = 1
+                if current in ['X', 'O'] and count == self.s:  # we won
+                    return current
+                else:
+                    prev = current
         # Horizontal win
         for y in range(self.n):
-            if self.current_state[y] == ['X' for x in range(self.n)]:
-                return 'X'
-            elif self.current_state[y] == ['O' for x in range(self.n)]:
-                return 'O'
+            prev = 'N'
+            count = 1
+            for x in range(self.n):
+                current = self.current_state[y][x]
+                if current == prev:
+                    count += 1
+                else:
+                    count = 1
+                if current in ['X', 'O'] and count == self.s:  # we won
+                    return current
+                else:
+                    prev = current
         # Main diagonal win
-        if (self.current_state[0][0] != '.' and
-                self.current_state[0][0] == self.current_state[1][1] and
-                self.current_state[0][0] == self.current_state[2][2]):
-            return self.current_state[0][0]
+        maxd = 2*self.n - 1 - 2*(self.s - 1)
+        split = (maxd - 1) / 2
+        for d in range(maxd):
+            if d < split:
+                x = (self.n - self.s) - d
+                y = 0
+            else:
+                x = 0
+                y = (self.n - self.s) - d
+
+            prev = 'N'
+            count = 1
+            while x < self.n and y < self.n:
+                current = self.current_state[y][x]
+                if current == prev:
+                    count += 1
+                else:
+                    count = 1
+                if current in ['X', 'O'] and count == self.s:  # we won
+                    return current
+                else:  # continue
+                    prev = current
+                    x += 1
+                    y += 1
         # Second diagonal win
-        if (self.current_state[0][2] != '.' and
-                self.current_state[0][2] == self.current_state[1][1] and
-                self.current_state[0][2] == self.current_state[2][0]):
-            return self.current_state[0][2]
+        for d in range(maxd):
+            if d < split:
+                x = 0
+                y = (self.s - 1) + d
+            else:
+                x = d - (self.s - 1)
+                y = self.n - 1
+
+            prev = 'n'
+            count = 1
+            while x < self.n and y > 0:
+                current = self.current_state[y][x]
+                if current == prev:
+                    count += 1
+                else:
+                    count = 1
+                if current in ['X', 'O'] and count == self.s: # we won
+                    return current
+                else:  # continue
+                    prev = current
+                    x += 1
+                    y -= 1
         # Is whole board full?
         for i in range(self.n):
             for j in range(self.n):

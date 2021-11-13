@@ -98,7 +98,7 @@ class Game:
             prev = 'N'
             count = 1
             for y in range(self.n):
-                current = self.current_state[y][x]
+                current = self.current_state[x][y]
                 if current == prev:
                     count += 1
                 else:
@@ -112,7 +112,7 @@ class Game:
             prev = 'N'
             count = 1
             for x in range(self.n):
-                current = self.current_state[y][x]
+                current = self.current_state[x][y]
                 if current == prev:
                     count += 1
                 else:
@@ -135,7 +135,7 @@ class Game:
             prev = 'N'
             count = 1
             while x < self.n and y < self.n:
-                current = self.current_state[y][x]
+                current = self.current_state[x][y]
                 if current == prev:
                     count += 1
                 else:
@@ -148,7 +148,7 @@ class Game:
                     y += 1
         # Second diagonal win (bottom left to top right)
         for d in range(maxd):
-            if d < split:
+            if d <= split:
                 x = 0
                 y = (self.s - 1) + d
             else:
@@ -157,8 +157,8 @@ class Game:
 
             prev = 'n'
             count = 1
-            while x < self.n and y > 0:
-                current = self.current_state[y][x]
+            while x < self.n and y >= 0:
+                current = self.current_state[x][y]
                 if current == prev:
                     count += 1
                 else:
@@ -415,7 +415,7 @@ def main():
 
         g = Game(s=s, b=b, n=n, recommend=recommend)
         g.play(algo=algo, player_x=player_x, player_o=player_o)
-        
+
 
 if __name__ == "__main__":
     main()

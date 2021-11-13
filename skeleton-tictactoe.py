@@ -343,6 +343,7 @@ def main():
 
     USAGE = 'Either run directly for default parameters: ./lineEmUp.py'
     USAGE += '\nOr with custom parameters: ./lineEmUp.py [-r] -x:[h|a] -o:[h|a] [-a:[a|m]]'
+    USAGE += '\nIf not specified: \nAI mode will default to ALPHABETA algorithm\nRecommendations will not be shown'
 
     #@TODO: add prompt to choose game type
     if len(sys.argv) == 1:

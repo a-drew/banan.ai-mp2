@@ -121,7 +121,7 @@ class Game:
                     return current
                 else:
                     prev = current
-        # Main diagonal win
+        # Main diagonal win (top left to bottom right)
         maxd = 2*self.n - 1 - 2*(self.s - 1)
         split = (maxd - 1) / 2
         for d in range(maxd):
@@ -146,7 +146,7 @@ class Game:
                     prev = current
                     x += 1
                     y += 1
-        # Second diagonal win
+        # Second diagonal win (bottom left to top right)
         for d in range(maxd):
             if d < split:
                 x = 0
@@ -342,8 +342,9 @@ class Game:
 def main():
 
     USAGE = 'Either run directly for default parameters: ./lineEmUp.py'
-    USAGE += '\nOr with custom parameters: ./lineEmUp.py [-r] -x:[h|a] -o:[h|a] [-a:[a|m]]'
-    USAGE += '\nIf not specified: \nAI mode will default to ALPHABETA algorithm\nRecommendations will not be shown'
+    USAGE += '\nOr with custom parameters: ./lineEmUp.py [-r] -x:[h|a] -o:[h|a] [-a:[a|m]] '
+    USAGE += '\n\nIf not specified: \n-a: AI mode will default to ALPHABETA algorithm\n-r: Recommendations will not be shown'
+    USAGE += '\n-b: blocks set to 0\n-s:  to 3\n-n: board size set to 3x3'
 
     #@TODO: add prompt to choose game type
     if len(sys.argv) == 1:
@@ -354,9 +355,12 @@ def main():
         if sys.argv[1] == '-h' or sys.argv[1] == '--help':
             print(USAGE)
 
+        # default values
         recommend = False
         args_present = [False, False, False]
         player_x = player_y = algo = None
+        s = n = 3
+        b = 0
 
         for arg in sys.argv:
             # show recommended moves?
@@ -386,6 +390,12 @@ def main():
                 else:
                     print('Illegal option for player O type')
                     sys.exit(0)
+            if '-n:' in arg:
+                n = int(arg.split(':')[1])
+            if '-b:' in arg:
+                b = int(arg.split(':')[1])
+            if '-s:' in arg:
+                s = int(arg.split(':')[1])
             if '-a:' in arg:
                 args_present[2] = True
                 algo_type = arg.split(':')[1]
@@ -403,7 +413,7 @@ def main():
                 print('Missing required parameters')
                 sys.exit(0)
 
-        g = Game(recommend=recommend)
+        g = Game(s=s, b=b, n=n, recommend=recommend)
         g.play(algo=algo, player_x=player_x, player_o=player_o)
         
 

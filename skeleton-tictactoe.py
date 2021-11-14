@@ -6,9 +6,6 @@ import time
 import sys
 import logging
 
-class OutOfTimeException(Exception):
-    pass
-
 
 class Game:
     LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J']
@@ -33,7 +30,7 @@ class Game:
     # Your program should be able to make either player be a human or the AI. This means that you should
     # be able to run your program in all 4 combinations of players: H-H, H-AI, AI-H and AI-AI
 
-    def __init__(self, n=3, b=0, s=3, blocs=None, a=None, d1=1000000000, d2=1000000000, t=1000, recommend=True, gametrace_logfile=None):
+    def __init__(self, n=3, b=0, s=3, blocs=None, a=None, d1=100, d2=100, t=5, recommend=True, gametrace_logfile=None):
         self.n = n  # size of board
         self.s = s  # size of winning line
         self.b = b  # size of blocs
@@ -43,8 +40,6 @@ class Game:
         self.d2 = d2  # p2 search depth
         self.t = t  # search timeout
         self.recommend = recommend  # recommend human moves
-        self.d1_ctr = 0
-        self.d2_ctr = 0
         self.initialize_game()
        
         if not gametrace_logfile is None:
@@ -221,12 +216,10 @@ class Game:
         self.result = self.is_end()
         # Printing the appropriate message if the game has ended
         if self.result != None:
-            if self.result == 'X':
-                print('The winner is X!')
-            elif self.result == 'O':
-                print('The winner is O!')
-            elif self.result == '.':
+            if self.result == '.':
                 print("It's a tie!")
+            else:
+                print(F'The winner is {self.result}!')
             self.initialize_game()
         return self.result
 
@@ -249,34 +242,20 @@ class Game:
         return self.player_turn
 
     # f)
-    '''
-    the maximum allowed time (in seconds) for your program to return a move – t
-    Your AI should not take more than t seconds to return its move. If it does, your AI will automatically
-    lose the game. This entails that even if your adversarial search is allowed to go to a depth of d in the
-    game tree, it may not have time to do so every time. Your program must monitor the time, and if not
-    enough time is left to explore all the states at depth d, it must interrupt its search at depth d and
-    return values for the remaining states quickly before time is up.
+    # the maximum allowed time (in seconds) for your program to return a move – t
+    # Your AI should not take more than t seconds to return its move. If it does, your AI will automatically
+    # lose the game. This entails that even if your adversarial search is allowed to go to a depth of d in the
+    # game tree, it may not have time to do so every time. Your program must monitor the time, and if not
+    # enough time is left to explore all the states at depth d, it must interrupt its search at depth d and
+    # return values for the remaining states quickly before time is up.
 
-    '''
-
-    def minimax(self, max=False, player_type=None, curr_player=None):
-        self.d1_ctr = self.d2_ctr = 0  # reset ctrs
-        self.start_time = time.time()
-        self.player_type = player_type
-        return self._minimax(max=max, curr_player=curr_player)
-
-    def _minimax(self, max=False, curr_player=None):
+    def minimax(self, max=False, depth=None):
         # Minimizing for 'X' and maximizing for 'O'
         # Possible values are:
         # -1 - win for 'X'
         # 0  - a tie
         # 1  - loss for 'X'
         # We're initially setting it to 2 or -2 as worse than the worst case:
-
-        if curr_player == 'X':
-            self.d1_ctr += 1
-        elif curr_player == 'O':
-            self.d2_ctr += 1
 
         value = 2
         if max:
@@ -290,29 +269,25 @@ class Game:
             return (1, x, y)
         elif result == '.':
             return (0, x, y)
-        # check if it's been too long
-        elif time.time() - self.start_time > self.t and self.player_type == Game.AI:
-            # start bubbling up error to eventually be caught above
-            raise OutOfTimeException()
-        # checks for depths
-        elif curr_player == 'X' and self.d1_ctr >= self.d1:
+        elif time.time() - self.search_start > self.t - 0.01:
             return (self.eval(), x, y)
-        elif curr_player == 'O' and self.d2_ctr >= self.d2:
+        elif depth and depth <= 0:
             return (self.eval(), x, y)
 
+        next_depth = depth-1 if depth else None
         for i in range(self.n):
             for j in range(self.n):
                 if self.current_state[i][j] == '.':
                     if max:
                         self.current_state[i][j] = 'O'
-                        (v, _, _) = self._minimax(max=False, curr_player=curr_player)
+                        (v, _, _) = self.minimax(max=False, depth=next_depth)
                         if v > value:
                             value = v
                             x = i
                             y = j
                     else:
                         self.current_state[i][j] = 'X'
-                        (v, _, _) = self._minimax(max=True, curr_player=curr_player)
+                        (v, _, _) = self.minimax(max=True, depth=next_depth)
                         if v < value:
                             value = v
                             x = i
@@ -320,29 +295,13 @@ class Game:
                     self.current_state[i][j] = '.'
         return (value, x, y)
 
-    def alphabeta(self, alpha=-2, beta=2, max=False, player_type=None, curr_player=None):
-        self.d2_ctr = self.d1_ctr = 0
-        self.start_time = time.time()
-        self.player_type = player_type
-
-        try:
-            return self._alphabeta(alpha=alpha, beta=beta, max=max, curr_player=curr_player)
-        except OutOfTimeException as e:
-            raise OutOfTimeException(curr_player)
-
-    def _alphabeta(self, alpha=-2, beta=2, max=False, curr_player=None):
+    def alphabeta(self, alpha=-2, beta=2, max=False, depth=None):
         # Minimizing for 'X' and maximizing for 'O'
         # Possible values are:
         # -1 - win for 'X'
         # 0  - a tie
         # 1  - loss for 'X'
         # We're initially setting it to 2 or -2 as worse than the worst case:
-
-        # TODO: there aren't counting depth, these count total iterations rn
-        if curr_player == 'X':
-            self.d1_ctr += 1
-        elif curr_player == 'O':
-            self.d2_ctr += 1
 
         value = 2
         if max:
@@ -357,30 +316,25 @@ class Game:
             return (1, x, y)
         elif result == '.':
             return (0, x, y)
-        # check if it's been too long
-        elif time.time() - self.start_time > self.t and self.player_type == Game.AI:
-            # start bubbling up error to eventually be caught above
-            raise OutOfTimeException()
-
-        # checks for depths
-        elif curr_player == 'X' and self.d1_ctr >= self.d1:
+        elif time.time() - self.search_start > self.t - 0.01:
             return (self.eval(), x, y)
-        elif curr_player == 'O' and self.d2_ctr >= self.d2:
+        elif depth and depth <= 0:
             return (self.eval(), x, y)
 
+        next_depth = depth-1 if depth else None
         for i in range(self.n):
             for j in range(self.n):
                 if self.current_state[i][j] == '.':
                     if max:
                         self.current_state[i][j] = 'O'
-                        (v, _, _) = self._alphabeta(alpha, beta, max=False, curr_player=curr_player)
+                        (v, _, _) = self.alphabeta(alpha, beta, max=False, depth=next_depth)
                         if v > value:
                             value = v
                             x = i
                             y = j
                     else:
                         self.current_state[i][j] = 'X'
-                        (v, _, _) = self._alphabeta(alpha, beta, max=True, curr_player=curr_player)
+                        (v, _, _) = self.alphabeta(alpha, beta, max=True, depth=next_depth)
                         if v < value:
                             value = v
                             x = i
@@ -424,36 +378,32 @@ class Game:
             self.draw_board()
             if self.check_end():
                 return
-            try:
-                start = time.time()
-                if algo == self.MINIMAX:
-                    if self.player_turn == 'X':
-                        (_, x, y) = self.minimax(max=False, player_type=player_x, curr_player='X')
-                    else:
-                        (_, x, y) = self.minimax(max=True, player_type=player_o, curr_player='O')
-                else:  # algo == self.ALPHABETA
-                    if self.player_turn == 'X':
-                        (m, x, y) = self.alphabeta(max=False, player_type=player_x, curr_player='X')
-                    else:
-                        (m, x, y) = self.alphabeta(max=True, player_type=player_o, curr_player='O')
-                end = time.time()
-                if (self.player_turn == 'X' and player_x == self.HUMAN) or (
-                        self.player_turn == 'O' and player_o == self.HUMAN):
-                    if self.recommend:
-                        print(F'Evaluation time: {round(end - start, 7)}s')
-                        print(F'Recommended move: {self.LETTERS[x]}{y}')
-                    (x, y) = self.input_move()
-                if (self.player_turn == 'X' and player_x == self.AI) or (
-                        self.player_turn == 'O' and player_o == self.AI):
-                    print(F'Evaluation time: {round(end - start, 7)}s')
-                    if player_x == self.HUMAN or player_o == self.HUMAN:
-                        print(F'Player {self.player_turn} under AI control plays: {self.LETTERS[x]}{y}')
-                    else:
-                        print(F'Player {self.player_turn} under AI control plays: x = {x}, y = {y}')
-            except OutOfTimeException as e:
-                print(F'{e} ran out of time!')
-                # TODO: replace with random move
+
+            self.search_start = start = time.time()
+            if algo == self.MINIMAX:
+                (_, x, y) = self.minimax(max=self.player_turn == 'O')
+            else:  # algo == self.ALPHABETA
+                (m, x, y) = self.alphabeta(max=self.player_turn == 'O')
+            t = time.time() - start
+            if t > self.t - 0.01:
+                print('*** Search ran out of time ***')
+                print(F'Selected random move for {self.player_turn}: {self.LETTERS[x]}{y}')
+            elif t > self.t:
+                print(F'{self.player_turn} lost, they ran out of time!')
                 break
+
+            if (self.player_turn == 'X' and player_x == self.HUMAN) or (self.player_turn == 'O' and player_o == self.HUMAN):
+                if self.recommend:
+                    print(F'Evaluation time: {t}s')
+                    print(F'Recommended move: {self.LETTERS[x]}{y}')
+                (x, y) = self.input_move()
+            if (self.player_turn == 'X' and player_x == self.AI) or (
+                    self.player_turn == 'O' and player_o == self.AI):
+                print(F'Evaluation time: {t}s')
+                if player_x == self.HUMAN or player_o == self.HUMAN:
+                    print(F'Player {self.player_turn} under AI control plays: {self.LETTERS[x]}{y}')
+                else:
+                    print(F'Player {self.player_turn} under AI control plays: x = {x}, y = {y}')
             self.current_state[x][y] = self.player_turn
             self.switch_player()
 

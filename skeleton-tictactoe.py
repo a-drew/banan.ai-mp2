@@ -6,6 +6,7 @@ import time
 import sys
 import traceback
 
+
 class Game:
     LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J']
     MINIMAX = 0
@@ -70,9 +71,10 @@ class Game:
                 else:
                     row.append('.')
             board.append(row)
-        # Player X always plays first
         self.current_state = board
-        self.player_turn = 'X'
+        self.player_turn = 'X'  # Player X always plays first
+        self.max_diag = 2 * self.n - 1 - 2 * (self.s - 1)
+        self.split_diag = int((self.max_diag - 1) / 2)
 
     def draw_board(self):
         print("  " + "".join(self.LETTERS[:self.n]))
@@ -92,7 +94,6 @@ class Game:
         else:
             return True
 
-    # TODO: verify (5+ board slow af), clean up / reuse code, move on to writing heuristics + limiting depth and time
     def is_vert(self):
         for x in range(self.n):
             prev = 'N'
@@ -126,18 +127,16 @@ class Game:
         return False
 
     def is_diag(self):
-        maxd = 2 * self.n - 1 - 2 * (self.s - 1)
-        split = (maxd - 1) / 2
         # Main diagonal win (top left to bottom right)
-        result = self.is_main_diag(maxd, split)
+        result = self.is_main_diag()
         if result:
             return result
         # Second diagonal win (bottom left to top right)
-        return self.is_sec_diag(maxd, split)
+        return self.is_sec_diag()
 
-    def is_main_diag(self, maxd, split):
-        for d in range(maxd):
-            if d < split:
+    def is_main_diag(self):
+        for d in range(self.max_diag):
+            if d < self.split_diag:
                 x = (self.n - self.s) - d
                 y = 0
             else:
@@ -160,13 +159,13 @@ class Game:
                     y += 1
         return False
 
-    def is_sec_diag(self, maxd, split):
-        for d in range(maxd):
-            if d <= split:
+    def is_sec_diag(self):
+        for d in range(self.max_diag):
+            if d <= self.split_diag:
                 x = 0
                 y = (self.s - 1) + d
             else:
-                x = d - split
+                x = d - self.split_diag
                 y = self.n - 1
 
             prev = 'n'
@@ -252,6 +251,7 @@ class Game:
     return values for the remaining states quickly before time is up.
 
     '''
+
     def minimax(self, max=False, curr_player=None):
         self.start_time = time.time()
         self.curr_player = curr_player
@@ -337,16 +337,15 @@ class Game:
             else:
                 raise Exception('OutOfTimeException: Winner is X')
 
-
         for i in range(self.n):
-            #too_late = False
+            # too_late = False
 
-            #if too_late:
+            # if too_late:
             #    break
 
             for j in range(self.n):
                 # check if it's been too long
-                #if time.time() - self.start_time > self.t:
+                # if time.time() - self.start_time > self.t:
                 #    too_late = True
                 #    break
 
@@ -388,7 +387,7 @@ class Game:
             player_x = self.HUMAN
         if player_o == None:
             player_o = self.HUMAN
-        
+
         try:
             while True:
                 self.draw_board()
@@ -414,7 +413,8 @@ class Game:
                         print(F'Evaluation time: {round(end - start, 7)}s')
                         print(F'Recommended move: {self.LETTERS[x]}{y}')
                     (x, y) = self.input_move()
-                if (self.player_turn == 'X' and player_x == self.AI) or (self.player_turn == 'O' and player_o == self.AI):
+                if (self.player_turn == 'X' and player_x == self.AI) or (
+                        self.player_turn == 'O' and player_o == self.AI):
                     print(F'Evaluation time: {round(end - start, 7)}s')
                     if player_x == self.HUMAN or player_o == self.HUMAN:
                         print(F'Player {self.player_turn} under AI control plays: {self.LETTERS[x]}{y}')
@@ -425,6 +425,7 @@ class Game:
         except Exception as e:
             traceback.print_exc()
             print(e)
+
 
 def main():
     USAGE = 'Either run directly for default parameters: ./lineEmUp.py'

@@ -4,8 +4,9 @@
 
 import time
 import sys
-import traceback
 
+class OutOfTimeException(Exception):
+    pass
 
 class Game:
     LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J']
@@ -30,7 +31,7 @@ class Game:
     # Your program should be able to make either player be a human or the AI. This means that you should
     # be able to run your program in all 4 combinations of players: H-H, H-AI, AI-H and AI-AI
 
-    def __init__(self, n=3, b=0, s=3, blocs=None, a=None, d1=1000000000, d2=1000000000, t=1000, recommend=True):
+    def __init__(self, n=3, b=0, s=3, blocs=None, a=None, d1=1000000000, d2=1000000000, t=1, recommend=True):
         self.n = n  # size of board
         self.s = s  # size of winning line
         self.b = b  # size of blocs
@@ -43,6 +44,8 @@ class Game:
         self.d1_ctr = 0
         self.d2_ctr = 0
         self.initialize_game()
+        self.previous = '?'
+        self.repeat_count = 1
 
         print('n: ' + str(self.n))
         print('s: ' + str(self.s))
@@ -51,7 +54,6 @@ class Game:
         print('d1: ' + str(self.d1))
         print('d2: ' + str(self.d2))
         print('recommend: ' + str(recommend))
-
 
     def validate(self):
         if self.n > 10 or self.n < 3:
@@ -105,47 +107,33 @@ class Game:
         else:
             return True
 
-    def is_vert(self):
+    def is_vert(self, check_win):
         for x in range(self.n):
-            prev = 'N'
-            count = 1
+            self.previous = 'N'
             for y in range(self.n):
-                current = self.current_state[x][y]
-                if current == prev:
-                    count += 1
-                else:
-                    count = 1
-                if current in ['X', 'O'] and count == self.s:  # we won
-                    return current
-                else:
-                    prev = current
+                result = check_win(x, y)
+                if result:
+                    return result
         return False
 
-    def is_horz(self):
+    def is_horz(self, check_win):
         for y in range(self.n):
-            prev = 'N'
-            count = 1
+            self.previous = 'N'
             for x in range(self.n):
-                current = self.current_state[x][y]
-                if current == prev:
-                    count += 1
-                else:
-                    count = 1
-                if current in ['X', 'O'] and count == self.s:  # we won
-                    return current
-                else:
-                    prev = current
+                result = check_win(x, y)
+                if result:
+                    return result
         return False
 
-    def is_diag(self):
+    def is_diag(self, check_win):
         # Main diagonal win (top left to bottom right)
-        result = self.is_main_diag()
+        result = self.is_main_diag(check_win)
         if result:
             return result
         # Second diagonal win (bottom left to top right)
-        return self.is_sec_diag()
+        return self.is_sec_diag(check_win)
 
-    def is_main_diag(self):
+    def is_main_diag(self, check_win):
         for d in range(self.max_diag):
             if d < self.split_diag:
                 x = (self.n - self.s) - d
@@ -154,23 +142,17 @@ class Game:
                 x = 0
                 y = (self.n - self.s) - d
 
-            prev = 'N'
-            count = 1
+            self.previous = 'N'
             while x < self.n and y < self.n:
-                current = self.current_state[x][y]
-                if current == prev:
-                    count += 1
-                else:
-                    count = 1
-                if current in ['X', 'O'] and count == self.s:  # we won
-                    return current
-                else:  # continue
-                    prev = current
-                    x += 1
-                    y += 1
+                result = check_win(x, y)
+                if result:
+                    return result
+                # continue
+                x += 1
+                y += 1
         return False
 
-    def is_sec_diag(self):
+    def is_sec_diag(self, check_win):
         for d in range(self.max_diag):
             if d <= self.split_diag:
                 x = 0
@@ -178,21 +160,14 @@ class Game:
             else:
                 x = d - self.split_diag
                 y = self.n - 1
-
-            prev = 'n'
-            count = 1
+            self.previous = 'N'
             while x < self.n and y >= 0:
-                current = self.current_state[int(x)][int(y)]
-                if current == prev:
-                    count += 1
-                else:
-                    count = 1
-                if current in ['X', 'O'] and count == self.s:  # we won
-                    return current
-                else:  # continue
-                    prev = current
-                    x += 1
-                    y -= 1
+                result = check_win(x, y)
+                if result:
+                    return result
+                # continue
+                x += 1
+                y -= 1
         return False
 
     def is_full(self):
@@ -203,16 +178,27 @@ class Game:
         return False
 
     def is_end(self):
+        def check_win(x, y):
+            current = self.current_state[x][y]
+            if current == self.previous:
+                self.repeat_count += 1
+            else:
+                self.repeat_count = 1
+            if current in ['X', 'O'] and self.repeat_count == self.s:  # we won
+                return current
+            self.previous = current
+            return False
+
         # Vertical win
-        result = self.is_vert()
+        result = self.is_vert(check_win)
         if result:
             return result
         # Horizontal win
-        result = self.is_horz()
+        result = self.is_horz(check_win)
         if result:
             return result
         # Diagonal win
-        result = self.is_diag()
+        result = self.is_diag(check_win)
         if result:
             return result
         # Is whole board full?
@@ -264,10 +250,10 @@ class Game:
     '''
 
     def minimax(self, max=False, player_type=None, curr_player=None):
-        self.d1_ctr = self.d2_ctr = 0 # reset ctrs
+        self.d1_ctr = self.d2_ctr = 0  # reset ctrs
         self.start_time = time.time()
         self.player_type = player_type
-        self._minimax(max=max, curr_player=curr_player)
+        return self._minimax(max=max, curr_player=curr_player)
 
     def _minimax(self, max=False, curr_player=None):
         # Minimizing for 'X' and maximizing for 'O'
@@ -297,14 +283,14 @@ class Game:
         # check if it's been too long
         elif time.time() - self.start_time > self.t and self.player_type == Game.AI:
             if max:
-                raise Exception('OutOfTimeException: Winner is O')
+                raise OutOfTimeException('O')
             else:
-                raise Exception('OutOfTimeException: Winner is X')
+                raise OutOfTimeException('X')
         # checks for depths
         elif curr_player == 'X' and self.d1_ctr >= self.d1:
-            return (self.heuristic(), x, y)
+            return (self.eval(), x, y)
         elif curr_player == 'O' and self.d2_ctr >= self.d2:
-            return (self.heuristic(), x, y)
+            return (self.eval(), x, y)
 
         for i in range(self.n):
             for j in range(self.n):
@@ -340,6 +326,7 @@ class Game:
         # 1  - loss for 'X'
         # We're initially setting it to 2 or -2 as worse than the worst case:
 
+        # TODO: there aren't counting depth, these count total iterations rn
         if curr_player == 'X':
             self.d1_ctr += 1
         elif curr_player == 'O':
@@ -360,28 +347,20 @@ class Game:
             return (0, x, y)
         # check if it's been too long
         elif time.time() - self.start_time > self.t and self.player_type == Game.AI:
+            # TODO: this check is wrong, we need to know what player started the eval,
+            #       this will declare the last minimax iteration as the loser instead
             if max:
-                raise Exception('OutOfTimeException: Winner is O')
+                raise OutOfTimeException('O')
             else:
-                raise Exception('OutOfTimeException: Winner is X')
+                raise OutOfTimeException('X')
         # checks for depths
         elif curr_player == 'X' and self.d1_ctr >= self.d1:
-            return (self.heuristic(), x, y)
+            return (self.eval(), x, y)
         elif curr_player == 'O' and self.d2_ctr >= self.d2:
-            return (self.heuristic(), x, y)
+            return (self.eval(), x, y)
 
         for i in range(self.n):
-            # too_late = False
-
-            # if too_late:
-            #    break
-
             for j in range(self.n):
-                # check if it's been too long
-                # if time.time() - self.start_time > self.t:
-                #    too_late = True
-                #    break
-
                 if self.current_state[i][j] == '.':
                     if max:
                         self.current_state[i][j] = 'O'
@@ -410,9 +389,8 @@ class Game:
                             beta = value
         return (value, x, y)
 
-    def heuristic(self):
+    def eval(self):
         # @TODO: choosing strategy for whether use h1 or h2
-        
         return 0
 
     def play(self, algo=None, player_x=None, player_o=None):
@@ -426,12 +404,11 @@ class Game:
         if player_o == None:
             player_o = self.HUMAN
 
-        try:
-            while True:
-                self.draw_board()
-                if self.check_end():
-                    return
-
+        while True:
+            self.draw_board()
+            if self.check_end():
+                return
+            try:
                 start = time.time()
                 if algo == self.MINIMAX:
                     if self.player_turn == 'X':
@@ -444,7 +421,6 @@ class Game:
                     else:
                         (m, x, y) = self.alphabeta(max=True, player_type=player_o, curr_player='O')
                 end = time.time()
-
                 if (self.player_turn == 'X' and player_x == self.HUMAN) or (
                         self.player_turn == 'O' and player_o == self.HUMAN):
                     if self.recommend:
@@ -458,10 +434,12 @@ class Game:
                         print(F'Player {self.player_turn} under AI control plays: {self.LETTERS[x]}{y}')
                     else:
                         print(F'Player {self.player_turn} under AI control plays: x = {x}, y = {y}')
-                self.current_state[x][y] = self.player_turn
-                self.switch_player()
-        except Exception as e:
-            print(e)
+            except OutOfTimeException as e:
+                print(F'{e} ran out of time!')
+                # TODO: replace with random move
+                break
+            self.current_state[x][y] = self.player_turn
+            self.switch_player()
 
 
 def main():

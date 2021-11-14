@@ -5,6 +5,7 @@
 import time
 import sys
 
+
 class Game:
     LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J']
     MINIMAX = 0
@@ -36,7 +37,7 @@ class Game:
         self.a = a  # force algorithm, None / True: AlphaBeta, False: MiniMax
         self.d1 = d1  # p1 search depth
         self.d2 = d2  # p2 search depth
-        self.t = t    # search timeout
+        self.t = t  # search timeout
         self.recommend = recommend  # recommend human moves
         self.initialize_game()
 
@@ -92,8 +93,7 @@ class Game:
             return True
 
     # TODO: verify (5+ board slow af), clean up / reuse code, move on to writing heuristics + limiting depth and time
-    def is_end(self):
-        # Vertical win
+    def is_vert(self):
         for x in range(self.n):
             prev = 'N'
             count = 1
@@ -107,7 +107,9 @@ class Game:
                     return current
                 else:
                     prev = current
-        # Horizontal win
+        return False
+
+    def is_horz(self):
         for y in range(self.n):
             prev = 'N'
             count = 1
@@ -121,9 +123,19 @@ class Game:
                     return current
                 else:
                     prev = current
-        # Main diagonal win (top left to bottom right)
-        maxd = 2*self.n - 1 - 2*(self.s - 1)
+        return False
+
+    def is_diag(self):
+        maxd = 2 * self.n - 1 - 2 * (self.s - 1)
         split = (maxd - 1) / 2
+        # Main diagonal win (top left to bottom right)
+        result = self.is_main_diag(maxd, split)
+        if result:
+            return result
+        # Second diagonal win (bottom left to top right)
+        return self.is_sec_diag(maxd, split)
+
+    def is_main_diag(self, maxd, split):
         for d in range(maxd):
             if d < split:
                 x = (self.n - self.s) - d
@@ -146,13 +158,15 @@ class Game:
                     prev = current
                     x += 1
                     y += 1
-        # Second diagonal win (bottom left to top right)
+        return False
+
+    def is_sec_diag(self, maxd, split):
         for d in range(maxd):
             if d <= split:
                 x = 0
                 y = (self.s - 1) + d
             else:
-                x = d - (self.s - 1)
+                x = d - split
                 y = self.n - 1
 
             prev = 'n'
@@ -163,18 +177,37 @@ class Game:
                     count += 1
                 else:
                     count = 1
-                if current in ['X', 'O'] and count == self.s: # we won
+                if current in ['X', 'O'] and count == self.s:  # we won
                     return current
                 else:  # continue
                     prev = current
                     x += 1
                     y -= 1
-        # Is whole board full?
+        return False
+
+    def is_full(self):
         for i in range(self.n):
             for j in range(self.n):
-                # There's an empty field, we continue the game
-                if (self.current_state[i][j] == '.'):
-                    return None
+                if self.current_state[i][j] == '.':
+                    return True
+        return False
+
+    def is_end(self):
+        # Vertical win
+        result = self.is_vert()
+        if result:
+            return result
+        # Horizontal win
+        result = self.is_horz()
+        if result:
+            return result
+        # Diagonal win
+        result = self.is_diag()
+        if result:
+            return result
+        # Is whole board full?
+        if self.is_full():
+            return None
         # It's a tie!
         return '.'
 
@@ -340,13 +373,12 @@ class Game:
 
 
 def main():
-
     USAGE = 'Either run directly for default parameters: ./lineEmUp.py'
     USAGE += '\nOr with custom parameters: ./lineEmUp.py [-r] -x:[h|a] -o:[h|a] [-a:[a|m]] '
     USAGE += '\n\nIf not specified: \n-a: AI mode will default to ALPHABETA algorithm\n-r: Recommendations will not be shown'
     USAGE += '\n-b: blocks set to 0\n-s:  to 3\n-n: board size set to 3x3'
 
-    #@TODO: add prompt to choose game type
+    # @TODO: add prompt to choose game type
     if len(sys.argv) == 1:
         g = Game(recommend=True)
         g.play(algo=Game.ALPHABETA, player_x=Game.AI, player_o=Game.AI)
@@ -370,7 +402,7 @@ def main():
             if '-x:' in arg:
                 args_present[0] = True
                 player_type_x = arg.split(':')
-                
+
                 if player_type_x[1] == 'h':
                     player_x = Game.HUMAN
                 elif player_type_x[1] == 'a':

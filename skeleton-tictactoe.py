@@ -30,7 +30,7 @@ class Game:
     # Your program should be able to make either player be a human or the AI. This means that you should
     # be able to run your program in all 4 combinations of players: H-H, H-AI, AI-H and AI-AI
 
-    def __init__(self, n=3, b=0, s=3, blocs=None, a=None, d1=100, d2=100, t=5, recommend=True, gametrace_logfile=None):
+    def __init__(self, n=3, b=0, s=3, blocs=None, a=None, d1=10, d2=10, t=5, recommend=True, gametrace_logfile=None):
         self.n = n  # size of board
         self.s = s  # size of winning line
         self.b = b  # size of blocs
@@ -155,10 +155,10 @@ class Game:
                 y = 0
             else:
                 x = 0
-                y = (self.n - self.s) - d
+                y = d - self.split_diag
 
             line = []
-            while x < self.n and y < self.n:
+            while 0 <= x < self.n and 0 <= y < self.n:
                 line.append(self.current_state[x][y])
                 x += 1
                 y += 1
@@ -177,7 +177,7 @@ class Game:
                 x = d - self.split_diag
                 y = self.n - 1
             line = []
-            while x < self.n and y >= 0:
+            while 0 <= x < self.n and 0 <= y < self.n:
                 line.append(self.current_state[x][y])
                 x += 1
                 y -= 1
@@ -271,10 +271,10 @@ class Game:
             return (0, x, y)
         elif time.time() - self.search_start > self.t - 0.01:
             return (self.eval(), x, y)
-        elif depth and depth <= 0:
+        elif depth is not None and depth <= 0:
             return (self.eval(), x, y)
 
-        next_depth = depth-1 if depth else None
+        next_depth = depth-1 if depth else (self.d2 if max else self.d1)
         for i in range(self.n):
             for j in range(self.n):
                 if self.current_state[i][j] == '.':
@@ -318,10 +318,10 @@ class Game:
             return (0, x, y)
         elif time.time() - self.search_start > self.t - 0.01:
             return (self.eval(), x, y)
-        elif depth and depth <= 0:
+        elif depth is not None and depth <= 0:
             return (self.eval(), x, y)
 
-        next_depth = depth-1 if depth else None
+        next_depth = depth-1 if depth else (self.d2 if max else self.d1)
         for i in range(self.n):
             for j in range(self.n):
                 if self.current_state[i][j] == '.':
@@ -354,7 +354,7 @@ class Game:
 
     def eval(self):
         # @TODO: choosing strategy for whether use h1 or h2
-        return 0
+        return self.e1()
 
     def play(self, algo=None, player_x=None, player_o=None):
         # self.a allows for override of algo
@@ -380,10 +380,12 @@ class Game:
                 return
 
             self.search_start = start = time.time()
+            max = self.player_turn == 'O'
+            depth = (self.d2 if max else self.d1)
             if algo == self.MINIMAX:
-                (_, x, y) = self.minimax(max=self.player_turn == 'O')
+                (m, x, y) = self.minimax(max=max, depth=depth)
             else:  # algo == self.ALPHABETA
-                (m, x, y) = self.alphabeta(max=self.player_turn == 'O')
+                (m, x, y) = self.alphabeta(max=max, depth=depth)
             t = time.time() - start
             if t > self.t - 0.01:
                 print('*** Search ran out of time ***')
@@ -429,7 +431,8 @@ def main():
         player_x = player_y = algo = None
         s = n = 3
         b = 0
-        t = d1 = d2 = 1000000000
+        d1 = d2 = 10
+        t = 5
 
         for arg in sys.argv:
             # show recommended moves?

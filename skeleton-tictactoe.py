@@ -282,10 +282,8 @@ class Game:
             return (0, x, y)
         # check if it's been too long
         elif time.time() - self.start_time > self.t and self.player_type == Game.AI:
-            if self.curr_player == 'O':
-                raise OutOfTimeException('O')
-            else:
-                raise OutOfTimeException('X')
+            # start bubbling up error to eventually be caught above
+            raise OutOfTimeException()
         # checks for depths
         elif curr_player == 'X' and self.d1_ctr >= self.d1:
             return (self.eval(), x, y)
@@ -316,7 +314,12 @@ class Game:
         self.d2_ctr = self.d1_ctr = 0
         self.start_time = time.time()
         self.player_type = player_type
-        return self._alphabeta(alpha=alpha, beta=beta, max=max, curr_player=curr_player)
+
+        try:
+            return self._alphabeta(alpha=alpha, beta=beta, max=max, curr_player=curr_player)
+        except OutOfTimeException as e:
+            raise OutOfTimeException(curr_player)
+
 
     def _alphabeta(self, alpha=-2, beta=2, max=False, curr_player=None):
         # Minimizing for 'X' and maximizing for 'O'
@@ -347,12 +350,9 @@ class Game:
             return (0, x, y)
         # check if it's been too long
         elif time.time() - self.start_time > self.t and self.player_type == Game.AI:
-            # TODO: this check is wrong, we need to know what player started the eval,
-            #       this will declare the last minimax iteration as the loser instead
-            if curr_player == 'O':
-                raise OutOfTimeException('O')
-            else:
-                raise OutOfTimeException('X')
+            # start bubbling up error to eventually be caught above
+            raise OutOfTimeException()
+
         # checks for depths
         elif curr_player == 'X' and self.d1_ctr >= self.d1:
             return (self.eval(), x, y)

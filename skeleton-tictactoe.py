@@ -4,6 +4,7 @@
 
 import time
 import sys
+import logging
 
 class OutOfTimeException(Exception):
     pass
@@ -46,14 +47,28 @@ class Game:
         self.initialize_game()
         self.previous = '?'
         self.repeat_count = 1
+        
+        if not gametrace_logfile is None:
+            logging.basicConfig(filename=gametrace_logfile, level=logging.INFO)
+            logging.info('using log file')
+        else:
+            # print info level logging to console
+            logging.basicConfig(level=logging.INFO, format='%(message)s')
+            logging.info('not using log file')
 
-        print('n: ' + str(self.n))
-        print('s: ' + str(self.s))
-        print('b: ' + str(self.b))
-        print('a: ' + str(self.a))
-        print('d1: ' + str(self.d1))
-        print('d2: ' + str(self.d2))
-        print('recommend: ' + str(recommend))
+        # print/log initial configuration info
+        ## game params
+        logging.info('n: ' + str(self.n))
+        logging.info('b: ' + str(self.b))
+        logging.info('s: ' + str(self.s))
+        logging.info('t: ' + str(self.t))
+        ## position of blocs
+        logging.info('blocs: ' + str(blocs))
+
+        ## parameters of each player (others in 'play' method)
+        logging.info('d1: ' + str(self.d1))
+        logging.info('d2: ' + str(self.d2))
+        logging.info('recommendations enabled: ' + str(recommend))
 
     def validate(self):
         if self.n > 10 or self.n < 3:
@@ -404,6 +419,13 @@ class Game:
         if player_o == None:
             player_o = self.HUMAN
 
+        #@TODO: make it an option to have the two AI players with different algos
+        logging.info('AI algorithm: ' + 'AlphaBeta' if (algo == self.ALPHABETA) else 'Minimax')
+        logging.info('')
+        logging.info('player X: ' + 'human' if (player_x == self.HUMAN) else 'AI')
+        logging.info('vs.')
+        logging.info('player O: ' + 'human\n' if (player_o == self.HUMAN) else 'AI\n')
+
         while True:
             self.draw_board()
             if self.check_end():
@@ -522,7 +544,14 @@ def main():
                 print('Missing required parameters')
                 sys.exit(0)
 
-        g = Game(recommend=recommend, s=s, b=b, n=n, t=search_time, d1=d1, d2=d2)
+
+        gametrace_logfile = None
+
+        if player_x == Game.AI and player_o == Game.AI:
+            gametrace_logfile = 'gameTrace-' + str(n) + 'n' + str(b) + 'b' + str(s) + 's' + str(t) + 't.txt'
+            
+
+        g = Game(recommend=recommend, s=s, b=b, n=n, t=search_time, d1=d1, d2=d2, gametrace_logfile=gametrace_logfile)
         g.play(algo=algo, player_x=player_x, player_o=player_o)
 
 

@@ -5,6 +5,7 @@
 import time
 import sys
 import logging
+from itertools import groupby
 
 
 class Game:
@@ -351,6 +352,25 @@ class Game:
                         if value < beta:
                             beta = value
         return (value, x, y)
+
+    def e1(self):
+        score = 0
+        available_moves = 0
+        for line in self.read_all_lines():
+            line = ''.join(line)
+            groups = groupby(line)
+            for label, group in groups:
+                count = sum(1 for _ in group)
+                if label == '.':
+                    available_moves += 1
+                elif label == 'O':
+                    score += 10 ** count
+                elif label == 'X':
+                    score -= 10 ** count
+        if available_moves == 0:
+            return -1  # a tie is basically a loss
+        clamp_score = score / 10 ** self.s
+        return clamp_score
 
     def eval(self):
         # @TODO: choosing strategy for whether use h1 or h2

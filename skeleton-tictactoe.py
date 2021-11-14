@@ -30,7 +30,7 @@ class Game:
     # Your program should be able to make either player be a human or the AI. This means that you should
     # be able to run your program in all 4 combinations of players: H-H, H-AI, AI-H and AI-AI
 
-    def __init__(self, n=3, b=0, s=3, blocs=None, a=None, d1=1, d2=1, t=1000, recommend=True):
+    def __init__(self, n=3, b=0, s=3, blocs=None, a=None, d1=1000000000, d2=1000000000, t=1000, recommend=True):
         self.n = n  # size of board
         self.s = s  # size of winning line
         self.b = b  # size of blocs
@@ -40,7 +40,18 @@ class Game:
         self.d2 = d2  # p2 search depth
         self.t = t  # search timeout
         self.recommend = recommend  # recommend human moves
+        self.d1_ctr = 0
+        self.d2_ctr = 0
         self.initialize_game()
+
+        print('n: ' + str(self.n))
+        print('s: ' + str(self.s))
+        print('b: ' + str(self.b))
+        print('a: ' + str(self.a))
+        print('d1: ' + str(self.d1))
+        print('d2: ' + str(self.d2))
+        print('recommend: ' + str(recommend))
+
 
     def validate(self):
         if self.n > 10 or self.n < 3:
@@ -252,18 +263,24 @@ class Game:
 
     '''
 
-    def minimax(self, max=False, curr_player=None):
+    def minimax(self, max=False, player_type=None, curr_player=None):
+        self.d1_ctr = self.d2_ctr = 0 # reset ctrs
         self.start_time = time.time()
-        self.curr_player = curr_player
-        self._minimax(max=max)
+        self.player_type = player_type
+        self._minimax(max=max, curr_player=curr_player)
 
-    def _minimax(self, max=False):
+    def _minimax(self, max=False, curr_player=None):
         # Minimizing for 'X' and maximizing for 'O'
         # Possible values are:
         # -1 - win for 'X'
         # 0  - a tie
         # 1  - loss for 'X'
         # We're initially setting it to 2 or -2 as worse than the worst case:
+
+        if curr_player == 'X':
+            self.d1_ctr += 1
+        elif curr_player == 'O':
+            self.d2_ctr += 1
 
         value = 2
         if max:
@@ -278,25 +295,30 @@ class Game:
         elif result == '.':
             return (0, x, y)
         # check if it's been too long
-        elif time.time() - self.start_time > self.t and self.curr_player == Game.AI:
+        elif time.time() - self.start_time > self.t and self.player_type == Game.AI:
             if max:
                 raise Exception('OutOfTimeException: Winner is O')
             else:
                 raise Exception('OutOfTimeException: Winner is X')
+        # checks for depths
+        elif curr_player == 'X' and self.d1_ctr >= self.d1:
+            return (self.heuristic(), x, y)
+        elif curr_player == 'O' and self.d2_ctr >= self.d2:
+            return (self.heuristic(), x, y)
 
         for i in range(self.n):
             for j in range(self.n):
                 if self.current_state[i][j] == '.':
                     if max:
                         self.current_state[i][j] = 'O'
-                        (v, _, _) = self._minimax(max=False)
+                        (v, _, _) = self._minimax(max=False, curr_player=curr_player)
                         if v > value:
                             value = v
                             x = i
                             y = j
                     else:
                         self.current_state[i][j] = 'X'
-                        (v, _, _) = self._minimax(max=True)
+                        (v, _, _) = self._minimax(max=True, curr_player=curr_player)
                         if v < value:
                             value = v
                             x = i
@@ -304,18 +326,24 @@ class Game:
                     self.current_state[i][j] = '.'
         return (value, x, y)
 
-    def alphabeta(self, alpha=-2, beta=2, max=False, curr_player=None):
+    def alphabeta(self, alpha=-2, beta=2, max=False, player_type=None, curr_player=None):
+        self.d2_ctr = self.d1_ctr = 0
         self.start_time = time.time()
-        self.curr_player = curr_player
-        return self._alphabeta(alpha=alpha, beta=beta, max=max)
+        self.player_type = player_type
+        return self._alphabeta(alpha=alpha, beta=beta, max=max, curr_player=curr_player)
 
-    def _alphabeta(self, alpha=-2, beta=2, max=False):
+    def _alphabeta(self, alpha=-2, beta=2, max=False, curr_player=None):
         # Minimizing for 'X' and maximizing for 'O'
         # Possible values are:
         # -1 - win for 'X'
         # 0  - a tie
         # 1  - loss for 'X'
         # We're initially setting it to 2 or -2 as worse than the worst case:
+
+        if curr_player == 'X':
+            self.d1_ctr += 1
+        elif curr_player == 'O':
+            self.d2_ctr += 1
 
         value = 2
         if max:
@@ -331,11 +359,16 @@ class Game:
         elif result == '.':
             return (0, x, y)
         # check if it's been too long
-        elif time.time() - self.start_time > self.t and self.curr_player == Game.AI:
+        elif time.time() - self.start_time > self.t and self.player_type == Game.AI:
             if max:
                 raise Exception('OutOfTimeException: Winner is O')
             else:
                 raise Exception('OutOfTimeException: Winner is X')
+        # checks for depths
+        elif curr_player == 'X' and self.d1_ctr >= self.d1:
+            return (self.heuristic(), x, y)
+        elif curr_player == 'O' and self.d2_ctr >= self.d2:
+            return (self.heuristic(), x, y)
 
         for i in range(self.n):
             # too_late = False
@@ -352,14 +385,14 @@ class Game:
                 if self.current_state[i][j] == '.':
                     if max:
                         self.current_state[i][j] = 'O'
-                        (v, _, _) = self._alphabeta(alpha, beta, max=False)
+                        (v, _, _) = self._alphabeta(alpha, beta, max=False, curr_player=curr_player)
                         if v > value:
                             value = v
                             x = i
                             y = j
                     else:
                         self.current_state[i][j] = 'X'
-                        (v, _, _) = self._alphabeta(alpha, beta, max=True)
+                        (v, _, _) = self._alphabeta(alpha, beta, max=True, curr_player=curr_player)
                         if v < value:
                             value = v
                             x = i
@@ -376,6 +409,11 @@ class Game:
                         if value < beta:
                             beta = value
         return (value, x, y)
+
+    def heuristic(self):
+        # @TODO: choosing strategy for whether use h1 or h2
+        
+        return 0
 
     def play(self, algo=None, player_x=None, player_o=None):
         # self.a allows for override of algo
@@ -397,14 +435,14 @@ class Game:
                 start = time.time()
                 if algo == self.MINIMAX:
                     if self.player_turn == 'X':
-                        (_, x, y) = self.minimax(max=False, curr_player=player_x)
+                        (_, x, y) = self.minimax(max=False, player_type=player_x, curr_player='X')
                     else:
-                        (_, x, y) = self.minimax(max=True, curr_player=player_o)
+                        (_, x, y) = self.minimax(max=True, player_type=player_o, curr_player='O')
                 else:  # algo == self.ALPHABETA
                     if self.player_turn == 'X':
-                        (m, x, y) = self.alphabeta(max=False, curr_player=player_x)
+                        (m, x, y) = self.alphabeta(max=False, player_type=player_x, curr_player='X')
                     else:
-                        (m, x, y) = self.alphabeta(max=True, curr_player=player_o)
+                        (m, x, y) = self.alphabeta(max=True, player_type=player_o, curr_player='O')
                 end = time.time()
 
                 if (self.player_turn == 'X' and player_x == self.HUMAN) or (
@@ -423,7 +461,6 @@ class Game:
                 self.current_state[x][y] = self.player_turn
                 self.switch_player()
         except Exception as e:
-            traceback.print_exc()
             print(e)
 
 
@@ -448,7 +485,7 @@ def main():
         player_x = player_y = algo = None
         s = n = 3
         b = 0
-        t = 1000
+        t = d1 = d2 = 1000000000
 
         for arg in sys.argv:
             # show recommended moves?
@@ -494,6 +531,10 @@ def main():
                     algo = Game.MINIMAX
             if '-t:' in arg:
                 search_time = int(arg.split(':')[1])
+            if '-d1:' in arg:
+                d1 = int(arg.split(':')[1])
+            if '-d2:' in arg:
+                d2 = int(arg.split(':')[1])
 
         if player_x == Game.HUMAN and player_o == Game.HUMAN:
             args_present[2] = True
@@ -503,7 +544,7 @@ def main():
                 print('Missing required parameters')
                 sys.exit(0)
 
-        g = Game(recommend=recommend, s=s, b=b, n=n, t=search_time)
+        g = Game(recommend=recommend, s=s, b=b, n=n, t=search_time, d1=d1, d2=d2)
         g.play(algo=algo, player_x=player_x, player_o=player_o)
 
 

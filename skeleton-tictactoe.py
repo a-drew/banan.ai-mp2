@@ -31,7 +31,7 @@ class Game:
     # Your program should be able to make either player be a human or the AI. This means that you should
     # be able to run your program in all 4 combinations of players: H-H, H-AI, AI-H and AI-AI
 
-    def __init__(self, n=3, b=0, s=3, blocs=None, a=None, d1=1000000000, d2=1000000000, t=1, recommend=True):
+    def __init__(self, n=3, b=0, s=3, blocs=None, a=None, d1=1000000000, d2=1000000000, t=1000, recommend=True, gametrace_logfile=None):
         self.n = n  # size of board
         self.s = s  # size of winning line
         self.b = b  # size of blocs
@@ -282,7 +282,7 @@ class Game:
             return (0, x, y)
         # check if it's been too long
         elif time.time() - self.start_time > self.t and self.player_type == Game.AI:
-            if max:
+            if self.curr_player == 'O':
                 raise OutOfTimeException('O')
             else:
                 raise OutOfTimeException('X')
@@ -349,7 +349,7 @@ class Game:
         elif time.time() - self.start_time > self.t and self.player_type == Game.AI:
             # TODO: this check is wrong, we need to know what player started the eval,
             #       this will declare the last minimax iteration as the loser instead
-            if max:
+            if curr_player == 'O':
                 raise OutOfTimeException('O')
             else:
                 raise OutOfTimeException('X')

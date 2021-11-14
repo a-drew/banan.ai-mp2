@@ -46,10 +46,16 @@ class Game:
         self.d1_ctr = 0
         self.d2_ctr = 0
         self.initialize_game()
-        
+       
         if not gametrace_logfile is None:
-            logging.basicConfig(filename=gametrace_logfile, level=logging.INFO)
-            logging.info('using log file')
+            logging.basicConfig(level=logging.INFO,
+                    format='%(message)s',
+                    filename=gametrace_logfile,
+                    filemode='w')
+            console = logging.StreamHandler()
+            console.setLevel(logging.INFO)
+            logging.getLogger().addHandler(console)
+            logging.info('using log file: ' + gametrace_logfile)
         else:
             # print info level logging to console
             logging.basicConfig(level=logging.INFO, format='%(message)s')

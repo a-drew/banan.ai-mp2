@@ -9,6 +9,7 @@ import logging
 class OutOfTimeException(Exception):
     pass
 
+
 class Game:
     LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J']
     MINIMAX = 0
@@ -45,8 +46,6 @@ class Game:
         self.d1_ctr = 0
         self.d2_ctr = 0
         self.initialize_game()
-        self.previous = '?'
-        self.repeat_count = 1
         
         if not gametrace_logfile is None:
             logging.basicConfig(filename=gametrace_logfile, level=logging.INFO)
@@ -122,33 +121,33 @@ class Game:
         else:
             return True
 
-    def is_vert(self, check_win):
+    def is_full(self):
+        for i in range(self.n):
+            for j in range(self.n):
+                if self.current_state[i][j] == '.':
+                    return True
+        return False
+
+    def read_all_lines(self, callback=None):
+        lines = []
+        # Horizontal & Vertical
         for x in range(self.n):
-            self.previous = 'N'
+            row = []
+            col = []
             for y in range(self.n):
-                result = check_win(x, y)
+                row.append(self.current_state[y][x])
+                col.append(self.current_state[x][y])
+            if callback:
+                result = callback(col)
                 if result:
                     return result
-        return False
-
-    def is_horz(self, check_win):
-        for y in range(self.n):
-            self.previous = 'N'
-            for x in range(self.n):
-                result = check_win(x, y)
+                result = callback(row)
                 if result:
                     return result
-        return False
-
-    def is_diag(self, check_win):
-        # Main diagonal win (top left to bottom right)
-        result = self.is_main_diag(check_win)
-        if result:
-            return result
-        # Second diagonal win (bottom left to top right)
-        return self.is_sec_diag(check_win)
-
-    def is_main_diag(self, check_win):
+            else:
+                lines.append(row)
+                lines.append(col)
+        # Main Diagonal
         for d in range(self.max_diag):
             if d < self.split_diag:
                 x = (self.n - self.s) - d
@@ -157,17 +156,18 @@ class Game:
                 x = 0
                 y = (self.n - self.s) - d
 
-            self.previous = 'N'
+            line = []
             while x < self.n and y < self.n:
-                result = check_win(x, y)
-                if result:
-                    return result
-                # continue
+                line.append(self.current_state[x][y])
                 x += 1
                 y += 1
-        return False
-
-    def is_sec_diag(self, check_win):
+            if callback:
+                result = callback(line)
+                if result:
+                    return result
+            else:
+                lines.append(line)
+        # Second Diagonal
         for d in range(self.max_diag):
             if d <= self.split_diag:
                 x = 0
@@ -175,45 +175,34 @@ class Game:
             else:
                 x = d - self.split_diag
                 y = self.n - 1
-            self.previous = 'N'
+            line = []
             while x < self.n and y >= 0:
-                result = check_win(x, y)
-                if result:
-                    return result
-                # continue
+                line.append(self.current_state[x][y])
                 x += 1
                 y -= 1
-        return False
-
-    def is_full(self):
-        for i in range(self.n):
-            for j in range(self.n):
-                if self.current_state[i][j] == '.':
-                    return True
-        return False
+            if callback:
+                result = callback(line)
+                if result:
+                    return result
+            else:
+                lines.append(line)
+        if callback:
+            return False
+        return lines
 
     def is_end(self):
-        def check_win(x, y):
-            current = self.current_state[x][y]
-            if current == self.previous:
-                self.repeat_count += 1
-            else:
-                self.repeat_count = 1
-            if current in ['X', 'O'] and self.repeat_count == self.s:  # we won
-                return current
-            self.previous = current
-            return False
+        xs = 'X' * self.s
+        os = 'O' * self.s
 
-        # Vertical win
-        result = self.is_vert(check_win)
-        if result:
-            return result
-        # Horizontal win
-        result = self.is_horz(check_win)
-        if result:
-            return result
-        # Diagonal win
-        result = self.is_diag(check_win)
+        def check_win(line):
+            nonlocal xs, os
+            line = ''.join(line)
+            if xs in line:
+                return 'X'
+            elif os in line:
+                return 'O'
+
+        result = self.read_all_lines(check_win)
         if result:
             return result
         # Is whole board full?
@@ -334,7 +323,6 @@ class Game:
             return self._alphabeta(alpha=alpha, beta=beta, max=max, curr_player=curr_player)
         except OutOfTimeException as e:
             raise OutOfTimeException(curr_player)
-
 
     def _alphabeta(self, alpha=-2, beta=2, max=False, curr_player=None):
         # Minimizing for 'X' and maximizing for 'O'

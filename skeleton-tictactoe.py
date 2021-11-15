@@ -426,8 +426,10 @@ class Game:
     def e2(self):
         score = 0
         total_lines = self.n * 2 - 1
-        diagonals = [[] for i in range(total_lines)]
-        UNIT = 0.0001 # @TODO: scale down based on s -> *10^(-s)
+        # assuming downwards pointing arrows
+        diagonals_rl = [[] for i in range(total_lines)]
+        diagonals_lr = [[] for i in range(total_lines)]
+        UNIT = 10 ** (-1 * self.s) # @TODO: scale down based on s -> *10^(-s)
 
         # vertical check
         for x in range(len(self.current_state)):
@@ -435,7 +437,8 @@ class Game:
             for y in range(len(self.current_state)):
                 #print(str(x) + ':' + str(y) + ' -> ' + str(self.current_state[x][y]))
                 curr = self.current_state[x][y]
-                diagonals[x + y].append(self.current_state[x][y])
+                diagonals_rl[x + y].append(self.current_state[x][y])
+                diagonals_lr[(self.n - 1) + x - y].append(self.current_state[x][y])
 
                 if curr == 'X' and prev == 'O' or curr == 'O' and prev == 'X':
                     score += UNIT
@@ -445,13 +448,14 @@ class Game:
                     score -= UNIT
                 prev = curr
 
+        #print('diagonals_rl', diagonals_rl)
+        #print('diagonals_lr', diagonals_lr)
+
         # horizontal check
-        #TODO: add diagonals from this side as well
-        #@TODO: add pruning
         for x in range(len(self.current_state)):
             prev = '?'
             for y in range(len(self.current_state)):
-                #print(str(y) + ':' + str(x) + ' -> ' + str(self.current_state[y][x]))
+                print(str(y) + ':' + str(x) + ' -> ' + str(self.current_state[y][x]))
                 curr = self.current_state[y][x]
 
                 if curr == 'X' and prev == 'O' or curr == 'O' and prev == 'X':
@@ -462,7 +466,19 @@ class Game:
                     score -= UNIT
                 prev = curr
 
-        # diagonal check
+        # diagonal check (merge first, then prune)
+        diagonals = []
+
+        for d in diagonals_lr:
+            if len(d) >= self.s:
+                diagonals.append(d)
+
+        for d in diagonals_rl:
+            if len(d) >= self.s:
+                diagonals.append(d)
+
+        #print('diagonals', diagonals)
+
         for i in range(len(diagonals)):
             prev = '?'
             for j in range(len(diagonals[i])):
@@ -475,7 +491,6 @@ class Game:
                 elif curr == 'X' and prev == curr:
                     score -= UNIT
                 prev = curr
-
         return score
 
     def eval(self):

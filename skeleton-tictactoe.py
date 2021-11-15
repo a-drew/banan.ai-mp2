@@ -8,12 +8,63 @@ import logging
 from itertools import groupby
 
 
+class Player:
+    MINIMAX = 0
+    ALPHABETA = 1
+    AI = 0
+    HUMAN = 1
+    E1 = 0
+    E2 = 1
+
+    def __init__(self, symbol='X', t=AI, d=None, h=E1, a=ALPHABETA):
+        self.symbol = symbol
+        self.human = t
+        self.depth = d
+        self.heuristic = h
+        self.algo = a
+
+    def __str__(self):
+        return self.symbol
+
+    def is_ai(self):
+        return self.human == Player.AI
+
+    def is_human(self):
+        return self.human == Player.HUMAN
+
+    def use_minimax(self):
+        return self.algo == Game.MINIMAX
+
+    def use_alphabeta(self):
+        return self.algo == Game.ALPHABETA
+
+    def use_e1(self):
+        return self.heuristic == Player.E1
+
+    def use_e2(self):
+        return self.algo == Player.E2
+
+    def summary(self):
+        if self.human:
+            t = 'HUMAN'
+        else:
+            t = 'AI'
+        if self.heuristic:
+            h = 'e2(defensive)'
+        else:
+            h = 'e1(aggressive)'
+        if self.algo:
+            a = 'alphabeta'
+        else:
+            a = 'minimax'
+
+        logging.info(F'Player {self.symbol}: {t} d={self.depth} a={a} {h}')
+
+
 class Game:
     LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J']
     MINIMAX = 0
     ALPHABETA = 1
-    HUMAN = 2
-    AI = 3
 
     # (a) the n of the board – n – an integer in [3..10]
     # (b) the number of blocs – b – an integer in [0..2n]
@@ -31,7 +82,7 @@ class Game:
     # Your program should be able to make either player be a human or the AI. This means that you should
     # be able to run your program in all 4 combinations of players: H-H, H-AI, AI-H and AI-AI
 
-    def __init__(self, n=3, b=0, s=3, blocs=None, a=None, d1=10, d2=10, t=5, recommend=True, gametrace_logfile=None):
+    def __init__(self, n=3, b=0, s=3, blocs=None, a=None, d1=10, d2=10, t=15, recommend=True, gametrace_logfile=None):
         self.n = n  # size of board
         self.s = s  # size of winning line
         self.b = b  # size of blocs
@@ -42,12 +93,15 @@ class Game:
         self.t = t  # search timeout
         self.recommend = recommend  # recommend human moves
         self.initialize_game()
-       
-        if not gametrace_logfile is None:
+        # helpers for determining diagonals to read
+        self.max_diag = 2 * self.n - 1 - 2 * (self.s - 1)
+        self.split_diag = int((self.max_diag - 1) / 2)
+
+        if gametrace_logfile is not None:
             logging.basicConfig(level=logging.INFO,
-                    format='%(message)s',
-                    filename=gametrace_logfile,
-                    filemode='w')
+                                format='%(message)s',
+                                filename=gametrace_logfile,
+                                filemode='w')
             console = logging.StreamHandler()
             console.setLevel(logging.INFO)
             logging.getLogger().addHandler(console)
@@ -101,9 +155,6 @@ class Game:
                     row.append('.')
             board.append(row)
         self.current_state = board
-        self.player_turn = 'X'  # Player X always plays first
-        self.max_diag = 2 * self.n - 1 - 2 * (self.s - 1)
-        self.split_diag = int((self.max_diag - 1) / 2)
 
     def draw_board(self):
         print("  " + "".join(self.LETTERS[:self.n]))
@@ -127,8 +178,8 @@ class Game:
         for i in range(self.n):
             for j in range(self.n):
                 if self.current_state[i][j] == '.':
-                    return True
-        return False
+                    return False
+        return True
 
     def read_all_lines(self, callback=None):
         lines = []
@@ -208,7 +259,7 @@ class Game:
         if result:
             return result
         # Is whole board full?
-        if self.is_full():
+        if not self.is_full():
             return None
         # It's a tie!
         return '.'
@@ -218,29 +269,29 @@ class Game:
         # Printing the appropriate message if the game has ended
         if self.result != None:
             if self.result == '.':
-                print("It's a tie!")
+                logging.info("It's a tie!")
             else:
-                print(F'The winner is {self.result}!')
+                logging.info(F'The winner is {self.result}!')
             self.initialize_game()
         return self.result
 
     def input_move(self):
         while True:
-            word = [c for c in input(F'Player {self.player_turn}, enter your move:')]
+            word = [c for c in input(F'Player {self.active_player}, enter your move:')]
             px = ord(word[0].upper()) - 65  # ascii
             py = int(word[1])
 
             if self.is_valid(px, py):
                 return (px, py)
             else:
-                print('The move is not valid! Try again.')
+                logging.info('The move is not valid! Try again.')
 
     def switch_player(self):
-        if self.player_turn == 'X':
-            self.player_turn = 'O'
-        elif self.player_turn == 'O':
-            self.player_turn = 'X'
-        return self.player_turn
+        if self.active_player == self.player_x:
+            self.active_player = self.player_o
+        elif self.active_player == self.player_o:
+            self.active_player = self.player_x
+        return self.active_player
 
     # f)
     # the maximum allowed time (in seconds) for your program to return a move – t
@@ -275,7 +326,7 @@ class Game:
         elif depth is not None and depth <= 0:
             return (self.eval(), x, y)
 
-        next_depth = depth-1 if depth else (self.d2 if max else self.d1)
+        next_depth = depth - 1 if depth else self.active_player.depth
         for i in range(self.n):
             for j in range(self.n):
                 if self.current_state[i][j] == '.':
@@ -322,7 +373,7 @@ class Game:
         elif depth is not None and depth <= 0:
             return (self.eval(), x, y)
 
-        next_depth = depth-1 if depth else (self.d2 if max else self.d1)
+        next_depth = depth - 1 if depth else self.active_player.depth
         for i in range(self.n):
             for j in range(self.n):
                 if self.current_state[i][j] == '.':
@@ -357,7 +408,6 @@ class Game:
         score = 0
         available_moves = 0
         for line in self.read_all_lines():
-            line = ''.join(line)
             groups = groupby(line)
             for label, group in groups:
                 count = sum(1 for _ in group)
@@ -373,26 +423,32 @@ class Game:
         return clamp_score
 
     def eval(self):
-        # @TODO: choosing strategy for whether use h1 or h2
+        # @TODO: choosing strategy for whether use e1 or e2
         return self.e1()
 
-    def play(self, algo_x=None, algo_o=None, player_x=None, player_o=None):
+    def play(self, algo=None, player_x=Player('X'), player_o=Player('O')):
         # self.a allows for override of algo
-        if algo == None or self.a == True:
+        if self.a == True:
             algo = self.ALPHABETA
         if self.a == False:
             algo = self.MINIMAX
-        if player_x == None:
-            player_x = self.HUMAN
-        if player_o == None:
-            player_o = self.HUMAN
+        # algo will override the player's algo
+        if algo is not None:
+            player_x.algo = algo
+            player_o.algo = algo
+        # player set depth will prevail over game settings
+        if player_x.depth is None:
+            player_x.depth = self.d1
+        if player_o.depth is None:
+            player_o.depth = self.d2
 
-        #@TODO: make it an option to have the two AI players with different algos
-        logging.info('AI algorithm: ' + 'AlphaBeta' if (algo == self.ALPHABETA) else 'Minimax')
-        logging.info('')
-        logging.info('player X: ' + 'human' if (player_x == self.HUMAN) else 'AI')
-        logging.info('vs.')
-        logging.info('player O: ' + 'human\n' if (player_o == self.HUMAN) else 'AI\n')
+        # player X always goes first
+        self.active_player = player_x
+        self.player_x = player_x
+        self.player_o = player_o
+
+        player_x.summary()
+        player_o.summary()
 
         while True:
             self.draw_board()
@@ -400,33 +456,29 @@ class Game:
                 return
 
             self.search_start = start = time.time()
-            max = self.player_turn == 'O'
+            max = self.active_player == player_o
             depth = (self.d2 if max else self.d1)
-            if algo == self.MINIMAX:
+            if self.active_player.use_minimax():
                 (m, x, y) = self.minimax(max=max, depth=depth)
             else:  # algo == self.ALPHABETA
                 (m, x, y) = self.alphabeta(max=max, depth=depth)
             t = time.time() - start
             if t > self.t - 0.01:
-                print('*** Search ran out of time ***')
-                print(F'Selected random move for {self.player_turn}: {self.LETTERS[x]}{y}')
+                logging.info('*** Search ran out of time ***')
+                logging.info(F'Selected random move for {self.active_player}: {self.LETTERS[x]}{y}')
             elif t > self.t:
-                print(F'{self.player_turn} lost, they ran out of time!')
+                logging.info(F'{self.active_player} lost, they ran out of time!')
                 break
 
-            if (self.player_turn == 'X' and player_x == self.HUMAN) or (self.player_turn == 'O' and player_o == self.HUMAN):
+            if self.active_player.is_human():
                 if self.recommend:
-                    print(F'Evaluation time: {t}s')
-                    print(F'Recommended move: {self.LETTERS[x]}{y}')
+                    logging.info(F'Evaluation time: {t}s')
+                    logging.info(F'Recommended move: {self.LETTERS[x]}{y} (score: {m})')
                 (x, y) = self.input_move()
-            if (self.player_turn == 'X' and player_x == self.AI) or (
-                    self.player_turn == 'O' and player_o == self.AI):
-                print(F'Evaluation time: {t}s')
-                if player_x == self.HUMAN or player_o == self.HUMAN:
-                    print(F'Player {self.player_turn} under AI control plays: {self.LETTERS[x]}{y}')
-                else:
-                    print(F'Player {self.player_turn} under AI control plays: x = {x}, y = {y}')
-            self.current_state[x][y] = self.player_turn
+            if self.active_player.is_ai():
+                logging.info(F'Evaluation time: {t}s')
+                logging.info(F'Player {self.active_player} under AI control plays: {self.LETTERS[x]}{y} (score: {m})')
+            self.current_state[x][y] = self.active_player.symbol
             self.switch_player()
 
 
@@ -439,8 +491,8 @@ def main():
     # @TODO: add prompt to choose game type
     if len(sys.argv) == 1:
         g = Game(recommend=True)
-        g.play(algo_x=Game.ALPHABETA, algo_o= player_x=Game.AI, player_o=Game.AI)
-        g.play(algo_x=Game.MINIMAX, algo_o=Game.MINIMAX, player_x=Game.AI, player_o=Game.HUMAN)
+        g.play(algo=Game.ALPHABETA, player_x=Player('X', t=Player.AI), player_o=Player('O', t=Player.AI))
+        g.play(algo=Game.MINIMAX, player_x=Player('X', t=Player.AI), player_o=Player('O', t=Player.HUMAN))
     elif len(sys.argv) >= 1:
         if sys.argv[1] == '-h' or sys.argv[1] == '--help':
             print(USAGE)
@@ -465,16 +517,16 @@ def main():
                 player_type_x = arg.split(':')
 
                 if player_type_x[1] == 'h':
-                    player_x = Game.HUMAN
+                    player_x = Player.HUMAN
                 elif player_type_x[1] == 'a':
-                    player_x = Game.AI
+                    player_x = Player.AI
 
                     if len(player_type_x) >= 3:
                         algo_x = player_type_x[2]
                     else:
                         algo_x = Game.ALPHABETA
                 else:
-                    print('Illegal option for player X type')
+                    logging.info('Illegal option for player X type')
                     sys.exit(0)
 
             # set player O
@@ -483,9 +535,9 @@ def main():
                 player_type_o = arg.split(':')
 
                 if player_type_o[1] == 'h':
-                    player_o = Game.HUMAN
+                    player_o = Player.HUMAN
                 elif player_type_o[1] == 'a':
-                    player_o = Game.AI
+                    player_o = Player.AI
 
                     if len(player_type_o) >= 3:
                         algo_o = player_type_x[2]
@@ -493,7 +545,7 @@ def main():
                         algo_o = Game.ALPHABETA
 
                 else:
-                    print('Illegal option for player O type')
+                    logging.info('Illegal option for player O type')
                     sys.exit(0)
 
             if '-n:' in arg:
@@ -517,23 +569,21 @@ def main():
             if '-d2:' in arg:
                 d2 = int(arg.split(':')[1])
 
-        if player_x == Game.HUMAN and player_o == Game.HUMAN:
+        if player_x == Player.HUMAN and player_o == Player.HUMAN:
             args_present[2] = True
 
         for present in args_present:
             if not present:
-                print('Missing required parameters')
+                logging.info('Missing required parameters')
                 sys.exit(0)
-
 
         gametrace_logfile = None
 
-        if player_x == Game.AI and player_o == Game.AI:
+        if player_x == Player.AI and player_o == Player.AI:
             gametrace_logfile = 'gameTrace-' + str(n) + 'n' + str(b) + 'b' + str(s) + 's' + str(t) + 't.txt'
-            
 
         g = Game(recommend=recommend, s=s, b=b, n=n, t=search_time, d1=d1, d2=d2, gametrace_logfile=gametrace_logfile)
-        g.play(algo_x=algo_x, algo_o=algo_o, player_x=player_x, player_o=player_o)
+        g.play(player_x=Player('X', t=player_x, a=algo_x), player_o=Player('O', t=player_o, a=algo_y))
 
 
 if __name__ == "__main__":

@@ -422,6 +422,62 @@ class Game:
         clamp_score = score / 10 ** self.s
         return clamp_score
 
+    # prioritize blocking the other (X) player
+    def e2(self):
+        score = 0
+        total_lines = self.n * 2 - 1
+        diagonals = [[] for i in range(total_lines)]
+        UNIT = 0.0001 # @TODO: scale down based on s -> *10^(-s)
+
+        # vertical check
+        for x in range(len(self.current_state)):
+            prev = '?'
+            for y in range(len(self.current_state)):
+                #print(str(x) + ':' + str(y) + ' -> ' + str(self.current_state[x][y]))
+                curr = self.current_state[x][y]
+                diagonals[x + y].append(self.current_state[x][y])
+
+                if curr == 'X' and prev == 'O' or curr == 'O' and prev == 'X':
+                    score += UNIT
+                elif curr == 'O' and prev == curr:
+                    score += UNIT
+                elif curr == 'X' and prev == curr:
+                    score -= UNIT
+                prev = curr
+
+        # horizontal check
+        #TODO: add diagonals from this side as well
+        #@TODO: add pruning
+        for x in range(len(self.current_state)):
+            prev = '?'
+            for y in range(len(self.current_state)):
+                #print(str(y) + ':' + str(x) + ' -> ' + str(self.current_state[y][x]))
+                curr = self.current_state[y][x]
+
+                if curr == 'X' and prev == 'O' or curr == 'O' and prev == 'X':
+                    score += UNIT
+                elif curr == 'O' and prev == curr:
+                    score += UNIT
+                elif curr == 'X' and prev == curr:
+                    score -= UNIT
+                prev = curr
+
+        # diagonal check
+        for i in range(len(diagonals)):
+            prev = '?'
+            for j in range(len(diagonals[i])):
+                curr = self.current_state[y][x]
+
+                if curr == 'X' and prev == 'O' or curr == 'O' and prev == 'X':
+                    score += UNIT
+                elif curr == 'O' and prev == curr:
+                    score += UNIT
+                elif curr == 'X' and prev == curr:
+                    score -= UNIT
+                prev = curr
+
+        return score
+
     def eval(self):
         # @TODO: choosing strategy for whether use e1 or e2
         return self.e1()
@@ -432,6 +488,7 @@ class Game:
             algo = self.ALPHABETA
         if self.a == False:
             algo = self.MINIMAX
+
         # algo will override the player's algo
         if algo is not None:
             player_x.algo = algo
@@ -452,6 +509,7 @@ class Game:
 
         while True:
             self.draw_board()
+
             if self.check_end():
                 return
 

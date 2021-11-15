@@ -376,7 +376,7 @@ class Game:
         # @TODO: choosing strategy for whether use h1 or h2
         return self.e1()
 
-    def play(self, algo=None, player_x=None, player_o=None):
+    def play(self, algo_x=None, algo_o=None, player_x=None, player_o=None):
         # self.a allows for override of algo
         if algo == None or self.a == True:
             algo = self.ALPHABETA
@@ -439,8 +439,8 @@ def main():
     # @TODO: add prompt to choose game type
     if len(sys.argv) == 1:
         g = Game(recommend=True)
-        g.play(algo=Game.ALPHABETA, player_x=Game.AI, player_o=Game.AI)
-        g.play(algo=Game.MINIMAX, player_x=Game.AI, player_o=Game.HUMAN)
+        g.play(algo_x=Game.ALPHABETA, algo_o= player_x=Game.AI, player_o=Game.AI)
+        g.play(algo_x=Game.MINIMAX, algo_o=Game.MINIMAX, player_x=Game.AI, player_o=Game.HUMAN)
     elif len(sys.argv) >= 1:
         if sys.argv[1] == '-h' or sys.argv[1] == '--help':
             print(USAGE)
@@ -448,7 +448,8 @@ def main():
         # default values
         recommend = False
         args_present = [False, False, False]
-        player_x = player_y = algo = None
+        player_x = player_y = None
+        algo_x = algo_y = Game.ALPHABETA
         s = n = 3
         b = 0
         d1 = d2 = 10
@@ -467,9 +468,15 @@ def main():
                     player_x = Game.HUMAN
                 elif player_type_x[1] == 'a':
                     player_x = Game.AI
+
+                    if len(player_type_x) >= 3:
+                        algo_x = player_type_x[2]
+                    else:
+                        algo_x = Game.ALPHABETA
                 else:
                     print('Illegal option for player X type')
                     sys.exit(0)
+
             # set player O
             if '-o:' in arg:
                 args_present[1] = True
@@ -479,9 +486,16 @@ def main():
                     player_o = Game.HUMAN
                 elif player_type_o[1] == 'a':
                     player_o = Game.AI
+
+                    if len(player_type_o) >= 3:
+                        algo_o = player_type_x[2]
+                    else:
+                        algo_o = Game.ALPHABETA
+
                 else:
                     print('Illegal option for player O type')
                     sys.exit(0)
+
             if '-n:' in arg:
                 n = int(arg.split(':')[1])
             if '-b:' in arg:
@@ -519,7 +533,7 @@ def main():
             
 
         g = Game(recommend=recommend, s=s, b=b, n=n, t=search_time, d1=d1, d2=d2, gametrace_logfile=gametrace_logfile)
-        g.play(algo=algo, player_x=player_x, player_o=player_o)
+        g.play(algo_x=algo_x, algo_o=algo_o, player_x=player_x, player_o=player_o)
 
 
 if __name__ == "__main__":

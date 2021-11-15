@@ -455,7 +455,7 @@ class Game:
         for x in range(len(self.current_state)):
             prev = '?'
             for y in range(len(self.current_state)):
-                print(str(y) + ':' + str(x) + ' -> ' + str(self.current_state[y][x]))
+                #print(str(y) + ':' + str(x) + ' -> ' + str(self.current_state[y][x]))
                 curr = self.current_state[y][x]
 
                 if curr == 'X' and prev == 'O' or curr == 'O' and prev == 'X':

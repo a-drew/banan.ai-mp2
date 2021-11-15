@@ -429,7 +429,10 @@ class Game:
         # assuming downwards pointing arrows
         diagonals_rl = [[] for i in range(total_lines)]
         diagonals_lr = [[] for i in range(total_lines)]
-        UNIT = 10 ** (-1 * self.s) # @TODO: scale down based on s -> *10^(-s)
+        UNIT = 100 ** (-1 * self.s) # @TODO: scale down based on s -> *10^(-s)
+        BLOCK_WEIGHT = 5
+        running_x_ctr = 1
+        running_o_ctr = 1
 
         # vertical check
         for x in range(len(self.current_state)):
@@ -441,12 +444,49 @@ class Game:
                 diagonals_lr[(self.n - 1) + x - y].append(self.current_state[x][y])
 
                 if curr == 'X' and prev == 'O' or curr == 'O' and prev == 'X':
-                    score += UNIT
+                    score += UNIT * BLOCK_WEIGHT
                 elif curr == 'O' and prev == curr:
-                    score += UNIT
+                    score += UNIT * running_o_ctr
                 elif curr == 'X' and prev == curr:
-                    score -= UNIT
+                    score -= UNIT * running_x_ctr
+
+                if curr == 'X':
+                    running_x_ctr += 1
+                else:
+                    running_x_ctr = 1
+
+                if curr == 'O':
+                    running_o_ctr += 1
+                else:
+                    running_o_ctr = 1
+
                 prev = curr
+            # check from both sides
+            prev = '?'
+            for y in range(len(self.current_state) - 1, -1, -1):
+                #print(str(x) + ':' + str(y) + ' -> ' + str(self.current_state[x][y]))
+                curr = self.current_state[x][y]
+
+                if curr == 'X' and prev == 'O' or curr == 'O' and prev == 'X':
+                    score += UNIT * BLOCK_WEIGHT
+                elif curr == 'O' and prev == curr:
+                    score += UNIT * running_o_ctr
+                elif curr == 'X' and prev == curr:
+                    score -= UNIT * running_x_ctr
+
+                if curr == 'X':
+                    running_x_ctr += 1
+                else:
+                    running_x_ctr = 1
+
+                if curr == 'O':
+                    running_o_ctr += 1
+                else:
+                    running_o_ctr = 1
+
+                prev = curr
+
+
 
         #print('diagonals_rl', diagonals_rl)
         #print('diagonals_lr', diagonals_lr)
@@ -459,11 +499,47 @@ class Game:
                 curr = self.current_state[y][x]
 
                 if curr == 'X' and prev == 'O' or curr == 'O' and prev == 'X':
-                    score += UNIT
+                    score += UNIT * BLOCK_WEIGHT
                 elif curr == 'O' and prev == curr:
-                    score += UNIT
+                    score += UNIT * running_o_ctr
                 elif curr == 'X' and prev == curr:
-                    score -= UNIT
+                    score -= UNIT * running_x_ctr
+
+                if curr == 'X':
+                    running_x_ctr += 1
+                else:
+                    running_x_ctr = 1
+
+                if curr == 'O':
+                    running_o_ctr += 1
+                else:
+                    running_o_ctr = 1
+
+                prev = curr
+
+            # check from both sides
+            prev = '?'
+            for y in range(len(self.current_state) - 1, -1, -1):
+                #print(str(y) + ':' + str(x) + ' -> ' + str(self.current_state[y][x]))
+                curr = self.current_state[y][x]
+
+                if curr == 'X' and prev == 'O' or curr == 'O' and prev == 'X':
+                    score += UNIT * BLOCK_WEIGHT
+                elif curr == 'O' and prev == curr:
+                    score += UNIT * running_o_ctr
+                elif curr == 'X' and prev == curr:
+                    score -= UNIT * running_x_ctr
+
+                if curr == 'X':
+                    running_x_ctr += 1
+                else:
+                    running_x_ctr = 1
+
+                if curr == 'O':
+                    running_o_ctr += 1
+                else:
+                    running_o_ctr = 1
+
                 prev = curr
 
         # diagonal check (merge first, then prune)
@@ -485,17 +561,53 @@ class Game:
                 curr = self.current_state[y][x]
 
                 if curr == 'X' and prev == 'O' or curr == 'O' and prev == 'X':
-                    score += UNIT
+                    score += UNIT * BLOCK_WEIGHT
                 elif curr == 'O' and prev == curr:
-                    score += UNIT
+                    score += UNIT * running_o_ctr
                 elif curr == 'X' and prev == curr:
-                    score -= UNIT
+                    score -= UNIT * running_x_ctr
+
+                if curr == 'X':
+                    running_x_ctr += 1
+                else:
+                    running_x_ctr = 1
+
+                if curr == 'O':
+                    running_o_ctr += 1
+                else:
+                    running_o_ctr = 1
+
                 prev = curr
+
+            # check from both sides
+            prev = '?'
+            for j in range(len(diagonals[i]) - 1, -1, -1):
+                curr = self.current_state[y][x]
+
+                if curr == 'X' and prev == 'O' or curr == 'O' and prev == 'X':
+                    score += UNIT * BLOCK_WEIGHT
+                elif curr == 'O' and prev == curr:
+                    score += UNIT * running_o_ctr
+                elif curr == 'X' and prev == curr:
+                    score -= UNIT * running_x_ctr
+
+                if curr == 'X':
+                    running_x_ctr += 1
+                else:
+                    running_x_ctr = 1
+
+                if curr == 'O':
+                    running_o_ctr += 1
+                else:
+                    running_o_ctr = 1
+
+                prev = curr
+
         return score
 
     def eval(self):
         # @TODO: choosing strategy for whether use e1 or e2
-        return self.e1()
+        return self.e2()
 
     def play(self, algo=None, player_x=Player('X'), player_o=Player('O')):
         # self.a allows for override of algo

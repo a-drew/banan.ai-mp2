@@ -102,6 +102,7 @@ class Game:
                                 format='%(message)s',
                                 filename=gametrace_logfile,
                                 filemode='w')
+            self.draw_board(log=True)
             console = logging.StreamHandler()
             console.setLevel(logging.INFO)
             logging.getLogger().addHandler(console)
@@ -156,15 +157,23 @@ class Game:
             board.append(row)
         self.current_state = board
 
-    def draw_board(self):
-        print("  " + "".join(self.LETTERS[:self.n]))
-        print(" +" + "".join(['-' for x in range(self.n)]))
+    def draw_board(self, log=False):
+        buffer = ''
+        buffer += "  " + "".join(self.LETTERS[:self.n]) + '\n'
+        buffer += " +" + "".join(['-' for x in range(self.n)]) + '\n'
+
         for y in range(self.n):
-            print(F'{y}|', end="")
+            buffer += F'{y}|'
             for x in range(self.n):
-                print(F'{self.current_state[x][y]}', end="")
-            print()
-        print()
+                buffer += F'{self.current_state[x][y]}'
+            buffer += '\n'
+        buffer += '\n'
+
+        if log:
+            logging.info('Initial board config:')
+            logging.info(buffer)
+        else:
+            print(buffer)
 
     def is_valid(self, px, py):
         if px < 0 or px >= self.n or py < 0 or py >= self.n:

@@ -6,7 +6,7 @@ import time
 import sys
 import logging
 from itertools import groupby
-
+import random
 
 class TurnStats:
     def __init__(self):
@@ -133,6 +133,7 @@ class Game:
             logging.basicConfig(level=logging.INFO, format='%(message)s', filename=gametrace_logfile, filemode='w')
             console = logging.StreamHandler()
             console.setLevel(logging.INFO)
+
             logging.getLogger().addHandler(console)
             logging.debug('DEBUG: gametrace will be written to ' + gametrace_logfile)
         else:
@@ -141,6 +142,12 @@ class Game:
             logging.debug('DEBUG: gametrace output is disabled!')
 
         self.initialize_game()
+
+    def tweak(self, d1=2, d2=6, a=True, blocs=None):
+        self.d1 = d1
+        self.d2 = d2
+        self.a = a
+        self.blocs = [] if blocs is None else blocs
 
     def __str__(self):
         return F'n: {self.n} b: {self.b} s: {self.s} t: {self.t} \nblocs: {self.blocs} \nrecommend: {self.recommend}'
@@ -588,6 +595,8 @@ def main():
     USAGE += '\n\nIf not specified: \n-a: AI mode will default to ALPHABETA algorithm\n-r: Recommendations will not be shown'
     USAGE += '\n-b: blocks set to 0\n-s:  to 3\n-n: board size set to 3x3'
 
+    print('sys.argv', sys.argv)
+
     # @TODO: add prompt to choose game type
     if len(sys.argv) == 1:
         # g = Game(n=5, s=3, blocs=['B1', 'a2', 'C1', 'A5', 'E1', 'D2', 'B4', 'A0', 'A3', 'C4'], recommend=True)
@@ -597,6 +606,63 @@ def main():
     elif len(sys.argv) >= 1:
         if sys.argv[1] == '-h' or sys.argv[1] == '--help':
             print(USAGE)
+        #: n=4, b=4, s=3, t=5
+        #[(0,0),(0,4),(4,0),(4,4)]
+        for arg in sys.argv:
+            if '--tournament' in arg and len(arg.split(':')) >= 2:
+                r = int(arg.split(':')[1])
+                dr = r * 2
+
+                blocs=['A0', 'A3', 'D0', 'D3']
+                g = Game(n=4, s=3, t=5, b=4, d1=2, d2=6, gametrace_logfile='scoreboard.txt', blocs=blocs)
+                player_x = Player('X', t=Player.AI, a=Game.MINIMAX, h=Player.E1)
+                player_o = Player('O', t=Player.AI, a=Game.MINIMAX, h=Player.E2)
+
+                logging.info('\n\nFIRST HALF')
+
+                for i in range(r):
+                    if i % 2 == 0:
+                        g.play(algo=Game.ALPHABETA, player_x=player_x, player_o=player_o)
+                    else:
+                        g.play(algo=Game.ALPHABETA, player_x=player_o, player_o=player_x)
+
+
+                logging.info('\n\nSECOND HALF')
+
+                for i in range(r):
+                    # generate random blocs
+                    blocs = []
+
+                    while len(blocs) < 4:
+                        x = chr(random.randint(65, 69))
+                        y = random.randint(0,3)
+                        coord = str(x) + str(y)
+                        print('coord', coord)
+
+                        if not coord in blocs:
+                            blocs.append(coord)
+
+                    g.tweak(blocs=blocs)
+                    
+                    if i % 2 == 0:
+                        g.play(algo=Game.ALPHABETA, player_x=player_x, player_o=player_o)
+                    else:
+                        g.play(algo=Game.ALPHABETA, player_x=player_o, player_o=player_x)
+
+                '''
+                for i in range(dr):
+                    logging.info('\nROUND ' + str((i + 1)%r) + '/' + str(r) + ' START')
+                    g.play(algo=Game.ALPHABETA, player_x=player_x, player_o=player_o)
+
+                    if dr == r - 1:
+                        player_x = Player('X', t=Player.AI, a=Game.ALPHABETA, h=Player.E2)
+                        player_o = Player('O', t=Player.AI, a=Game.ALPHABETA, h=Player.E1)
+                        logging.info('\n\nSECOND HALF')
+
+
+                        g = Game(n=4, s=3, t=5, d1=2, d2=6, b=4, gametrace_logfile='scoreboard.txt', blocs=blocs)
+                '''
+                sys.exit(0)
 
         # default values
         recommend = False

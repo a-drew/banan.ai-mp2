@@ -642,11 +642,24 @@ def main():
 
                 logging.info('\n\nFIRST HALF')
 
+                x_wins = 0 # represents heuristic 1
+                o_wins = 0 # represents heuristic 2
+                ties = 0
+
                 for i in range(r):
                     if i % 2 == 0:
                         g.play(algo=Game.ALPHABETA, player_x=player_x, player_o=player_o)
                     else:
                         g.play(algo=Game.ALPHABETA, player_x=player_o, player_o=player_x)
+
+                    result = g.result
+
+                    if result == 'X':
+                        x_wins += 1
+                    elif result == 'O':
+                        o_wins += 1
+                    else:
+                        ties += 1
 
 
                 logging.info('\n\nSECOND HALF')
@@ -671,19 +684,24 @@ def main():
                     else:
                         g.play(algo=Game.ALPHABETA, player_x=player_o, player_o=player_x)
 
-                '''
-                for i in range(dr):
-                    logging.info('\nROUND ' + str((i + 1)%r) + '/' + str(r) + ' START')
-                    g.play(algo=Game.ALPHABETA, player_x=player_x, player_o=player_o)
 
-                    if dr == r - 1:
-                        player_x = Player('X', t=Player.AI, a=Game.ALPHABETA, h=Player.E2)
-                        player_o = Player('O', t=Player.AI, a=Game.ALPHABETA, h=Player.E1)
-                        logging.info('\n\nSECOND HALF')
+                    result = g.result
 
+                    if result == 'X':
+                        x_wins += 1
+                    elif result == 'O':
+                        o_wins += 1
+                    else:
+                        ties += 1
 
-                        g = Game(n=4, s=3, t=5, d1=2, d2=6, b=4, gametrace_logfile='scoreboard.txt', blocs=blocs)
-                '''
+                h1_winrate = x_wins / (2 * r) * 100
+                h2_winrate = o_wins / (2 * r) * 100
+
+                logging.info('\n\n--- SCOREBOARD SUMMARY ---\ntotal games played: ' + str(r * 2))
+                logging.info('h1 winrate: ' + str(h1_winrate) + '%')
+                logging.info('h2 winrate: ' + str(h2_winrate) + '%')
+                logging.info('number of ties: ' + str(ties))
+
                 sys.exit(0)
 
         # default values

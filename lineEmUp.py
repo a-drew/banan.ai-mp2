@@ -710,7 +710,7 @@ def main():
     # @TODO: add prompt to choose game type
     if len(sys.argv) == 1:
         # g = Game(n=5, s=3, blocs=['B1', 'a2', 'C1', 'A5', 'E1', 'D2', 'B4', 'A0', 'A3', 'C4'], recommend=True)
-        g = Game(n=3, s=3, blocs=[(2, 3)], t=8, d1=4, d2=8)
+        g = Game(n=5, s=4, blocs=[(2, 3)], t=8, d1=4, d2=8)
         g.play(algo=Game.ALPHABETA, player_x=Player('X', t=Player.AI), player_o=Player('O', t=Player.AI))
         g.play(algo=Game.MINIMAX, player_x=Player('X', t=Player.AI), player_o=Player('O', t=Player.HUMAN))
     elif len(sys.argv) >= 1:

@@ -20,19 +20,24 @@ class TurnStats:
     def avg_eval_depth(self):
         sum = 0
         leafs = 0
-        for depth, count in enumerate(self.eval_by_depth):
+        for _, (depth, count) in enumerate(self.eval_by_depth.items()):
             sum += depth * count
             leafs += count
+        if leafs == 0:
+            return 0
         return sum / leafs
 
+    def __str__(self):
+        return F'\n' \
+            + F'i   Evaluation time: {self.elapsed}s' \
+            + F'\nii  Heuristic evaluations: {self.eval_count} (cached:{self.eval_cache_hit})' \
+            + F'\niii Evaluations by depth: {self.eval_by_depth}' \
+            + F'\niv  Average evaluation depth: {self.avg_eval_depth}' \
+            + F'\nv   Average recursion depth: {self.avg_recursion_depth}' \
+            + F'\n'
+
     def summary(self):
-        logging.info(F'\n')
-        logging.info(F'i   Evaluation time: {self.elapsed}s')
-        logging.info(F'ii  Heuristic evaluations: {self.eval_count} (cache hits:{self.eval_cache_hit})')
-        logging.info(F'iii Evaluations by depth: {self.eval_by_depth}')
-        logging.info(F'iv  Average evaluation depth: {self.avg_eval_depth}')
-        logging.info(F'v   Average recursion depth: {self.avg_recursion_depth}')
-        logging.info(F'\n')
+        logging.info(self)
 
 
 class Player:
@@ -109,7 +114,7 @@ class Game:
     # Your program should be able to make either player be a human or the AI. This means that you should
     # be able to run your program in all 4 combinations of players: H-H, H-AI, AI-H and AI-AI
 
-    def __init__(self, n=3, b=0, s=3, blocs=None, a=None, d1=3, d2=3, t=1500000, recommend=True,
+    def __init__(self, n=3, b=0, s=3, blocs=None, a=None, d1=10, d2=10, t=1500000, recommend=True,
                  gametrace_logfile=None):
         self.n = n  # size of board
         self.s = s  # size of winning line
@@ -696,30 +701,34 @@ class Game:
             if self.check_end():
                 return
 
-            self.turn_stats = TurnStats()
-            self.search_start = start = time.time()
-            max = self.active_player == player_o
-            self.max_depth = depth = self.active_player.depth
-            if self.active_player.use_minimax():
-                (m, x, y) = self.minimax(max=max, depth=depth)
-            else:  # algo == self.ALPHABETA
-                (m, x, y) = self.alphabeta(max=max, depth=depth)
-            self.turn_stats.elapsed = t = time.time() - start
-            if t > self.t - 0.01:
-                logging.info('*** Search ran out of time ***')
-                logging.info(F'Selected random move for {self.active_player}: {self.LETTERS[x]}{y}')
-            elif t > self.t:
-                logging.info(F'{self.active_player} lost, they ran out of time!')
-                break
+            x = y = -1
+            if self.recommend or self.active_player.is_ai():
+                self.turn_stats = TurnStats()
+                self.search_start = start = time.time()
+                max = self.active_player == player_o
+                self.max_depth = depth = self.active_player.depth
+                if self.active_player.use_minimax():
+                    (m, x, y) = self.minimax(max=max, depth=depth)
+                else:  # algo == self.ALPHABETA
+                    (m, x, y) = self.alphabeta(max=max, depth=depth)
+                self.turn_stats.elapsed = t = time.time() - start
+                if t > self.t - 0.01:
+                    logging.info('*** Search ran out of time ***')
+                    logging.info(F'Selected random move for {self.active_player}: {self.LETTERS[x]}{y}')
+                elif t > self.t:
+                    logging.info(F'{self.active_player} lost, they ran out of time!')
+                    break
+
+                if self.active_player.is_ai():
+                    logging.info(
+                        F'Player {self.active_player} under AI control plays: {self.LETTERS[x]}{y} (score: {m})')
+                elif self.recommend:
+                    logging.info(F'Recommended move: {self.LETTERS[x]}{y} (score: {m})')
+                self.turn_stats.summary()
 
             if self.active_player.is_human():
-                if self.recommend:
-                    logging.info(F'Recommended move: {self.LETTERS[x]}{y} (score: {m})')
                 (x, y) = self.input_move()
-            if self.active_player.is_ai():
-                logging.info(F'Player {self.active_player} under AI control plays: {self.LETTERS[x]}{y} (score: {m})')
 
-            self.turn_stats.summary()
             self.current_state[x][y] = self.active_player.symbol
             self.switch_player()
 

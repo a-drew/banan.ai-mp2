@@ -212,7 +212,7 @@ class Game:
         self.d1 = d1  # p1 search depth
         self.d2 = d2  # p2 search depth
         self.t = t  # search timeout
-        self.leeway = 0.01
+        self.leeway = 0.1
         self.recommend = recommend  # recommend human moves
         # helpers for determining diagonals to read
         self.max_diag = 2 * self.n - 1 - 2 * (self.s - 1)
@@ -681,7 +681,7 @@ class Game:
                 if self.active_player.is_ai() and t >= self.t:
                     logging.info(F'{self.active_player} lost, they ran out of time!')
                     break
-                elif self.t > t > self.t - 0.1:
+                elif self.t > t > self.t - self.leeway:
                     logging.info('*** Search ran out of time ***')
                     logging.info(F'Selected random move for {self.active_player}: {self.LETTERS[x]}{y}')
 

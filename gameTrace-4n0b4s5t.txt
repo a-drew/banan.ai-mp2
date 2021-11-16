@@ -1,0 +1,102 @@
+using log file: gameTrace-4n0b4s5t.txt
+n: 4
+b: 0
+s: 4
+t: 5
+blocs: None
+d1: 10
+d2: 10
+recommendations enabled: True
+Player X: AI d=10 a=alphabeta e1(aggressive)
+Player O: AI d=10 a=alphabeta e1(aggressive)
+  ABCD
+ +----
+0|....
+1|....
+2|....
+3|....
+
+
+*** Search ran out of time ***
+Selected random move for X: A3
+Evaluation time: 4.996422052383423s
+Player X under AI control plays: A3 (score: -1.2000000000000002e-06)
+  ABCD
+ +----
+0|....
+1|....
+2|....
+3|X...
+
+
+*** Search ran out of time ***
+Selected random move for O: A2
+Evaluation time: 4.9922449588775635s
+Player O under AI control plays: A2 (score: -1.1e-06)
+  ABCD
+ +----
+0|....
+1|....
+2|O...
+3|X...
+
+
+*** Search ran out of time ***
+Selected random move for X: B3
+Evaluation time: 4.99203896522522s
+Player X under AI control plays: B3 (score: -1.2600000000000002e-06)
+  ABCD
+ +----
+0|....
+1|....
+2|O...
+3|XX..
+
+
+*** Search ran out of time ***
+Selected random move for O: B2
+Evaluation time: 4.991626024246216s
+Player O under AI control plays: B2 (score: -1.12e-06)
+  ABCD
+ +----
+0|....
+1|....
+2|OO..
+3|XX..
+
+
+*** Search ran out of time ***
+Selected random move for X: C3
+Evaluation time: 4.9904820919036865s
+Player X under AI control plays: C3 (score: -1.3000000000000003e-06)
+  ABCD
+ +----
+0|....
+1|....
+2|OO..
+3|XXX.
+
+
+*** Search ran out of time ***
+Selected random move for O: C2
+Evaluation time: 4.9910759925842285s
+Player O under AI control plays: C2 (score: -1.14e-06)
+  ABCD
+ +----
+0|....
+1|....
+2|OOO.
+3|XXX.
+
+
+Evaluation time: 2.964448928833008s
+Player X under AI control plays: D3 (score: -1)
+  ABCD
+ +----
+0|....
+1|....
+2|OOO.
+3|XXXX
+
+
+The winner is X!

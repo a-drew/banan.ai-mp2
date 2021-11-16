@@ -701,7 +701,7 @@ class Game:
 
 def main():
     USAGE = 'Either run directly for default parameters: ./lineEmUp.py'
-    USAGE += '\nOr with custom parameters: ./lineEmUp.py [-r] -x:[h|a] -o:[h|a] [-a:[a|m]] '
+    USAGE += '\nOr with custom parameters: ./lineEmUp.py [-r] -x:<h|a> -o:<h|a> [-a:<a|m>] [-d1:<int>] [-d2:<int>] [-t:<int>]'
     USAGE += '\n\nIf not specified: \n-a: AI mode will default to ALPHABETA algorithm\n-r: Recommendations will not be shown'
     USAGE += '\n-b: blocks set to 0\n-s:  to 3\n-n: board size set to 3x3'
 

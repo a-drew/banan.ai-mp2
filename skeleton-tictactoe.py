@@ -482,179 +482,28 @@ class Game:
         score = 0
         total_lines = self.n * 2 - 1
         # assuming downwards pointing arrows
-        diagonals_rl = [[] for i in range(total_lines)]
-        diagonals_lr = [[] for i in range(total_lines)]
         UNIT = 100 ** (-1 * self.s)  # @TODO: scale down based on s -> *10^(-s)
         BLOCK_WEIGHT = 5
-        running_x_ctr = 1
-        running_o_ctr = 1
 
-        # vertical check
-        for x in range(len(self.current_state)):
+        lines = self.read_all_lines()
+
+        for line in lines:
             prev = '?'
-            for y in range(len(self.current_state)):
-                # logging.info(str(x) + ':' + str(y) + ' -> ' + str(self.current_state[x][y]))
-                curr = self.current_state[x][y]
-                diagonals_rl[x + y].append(self.current_state[x][y])
-                diagonals_lr[(self.n - 1) + x - y].append(self.current_state[x][y])
-
-                if curr == 'X' and prev == 'O' or curr == 'O' and prev == 'X':
+            for curr in line:
+                if curr == prev and curr == 'X':
+                    score -= UNIT
+                if curr == prev and curr == 'O':
+                    score += UNIT
+                elif not (curr == prev):
                     score += UNIT * BLOCK_WEIGHT
-                elif curr == 'O' and prev == curr:
-                    score += UNIT * running_o_ctr
-                elif curr == 'X' and prev == curr:
-                    score -= UNIT * running_x_ctr
-
-                if curr == 'X':
-                    running_x_ctr += 1
-                else:
-                    running_x_ctr = 1
-
-                if curr == 'O':
-                    running_o_ctr += 1
-                else:
-                    running_o_ctr = 1
-
-                prev = curr
-            # check from both sides
             prev = '?'
-            for y in range(len(self.current_state) - 1, -1, -1):
-                # logging.info(str(x) + ':' + str(y) + ' -> ' + str(self.current_state[x][y]))
-                curr = self.current_state[x][y]
-
-                if curr == 'X' and prev == 'O' or curr == 'O' and prev == 'X':
+            for curr in reversed(line):
+                if curr == prev and curr == 'X':
+                    score -= UNIT
+                if curr == prev and curr == 'O':
+                    score += UNIT
+                elif not (curr == prev):
                     score += UNIT * BLOCK_WEIGHT
-                elif curr == 'O' and prev == curr:
-                    score += UNIT * running_o_ctr
-                elif curr == 'X' and prev == curr:
-                    score -= UNIT * running_x_ctr
-
-                if curr == 'X':
-                    running_x_ctr += 1
-                else:
-                    running_x_ctr = 1
-
-                if curr == 'O':
-                    running_o_ctr += 1
-                else:
-                    running_o_ctr = 1
-
-                prev = curr
-
-        # logging.info('diagonals_rl', diagonals_rl)
-        # logging.info('diagonals_lr', diagonals_lr)
-
-        # horizontal check
-        for x in range(len(self.current_state)):
-            prev = '?'
-            for y in range(len(self.current_state)):
-                # logging.info(str(y) + ':' + str(x) + ' -> ' + str(self.current_state[y][x]))
-                curr = self.current_state[y][x]
-
-                if curr == 'X' and prev == 'O' or curr == 'O' and prev == 'X':
-                    score += UNIT * BLOCK_WEIGHT
-                elif curr == 'O' and prev == curr:
-                    score += UNIT * running_o_ctr
-                elif curr == 'X' and prev == curr:
-                    score -= UNIT * running_x_ctr
-
-                if curr == 'X':
-                    running_x_ctr += 1
-                else:
-                    running_x_ctr = 1
-
-                if curr == 'O':
-                    running_o_ctr += 1
-                else:
-                    running_o_ctr = 1
-
-                prev = curr
-
-            # check from both sides
-            prev = '?'
-            for y in range(len(self.current_state) - 1, -1, -1):
-                # logging.info(str(y) + ':' + str(x) + ' -> ' + str(self.current_state[y][x]))
-                curr = self.current_state[y][x]
-
-                if curr == 'X' and prev == 'O' or curr == 'O' and prev == 'X':
-                    score += UNIT * BLOCK_WEIGHT
-                elif curr == 'O' and prev == curr:
-                    score += UNIT * running_o_ctr
-                elif curr == 'X' and prev == curr:
-                    score -= UNIT * running_x_ctr
-
-                if curr == 'X':
-                    running_x_ctr += 1
-                else:
-                    running_x_ctr = 1
-
-                if curr == 'O':
-                    running_o_ctr += 1
-                else:
-                    running_o_ctr = 1
-
-                prev = curr
-
-        # diagonal check (merge first, then prune)
-        diagonals = []
-
-        for d in diagonals_lr:
-            if len(d) >= self.s:
-                diagonals.append(d)
-
-        for d in diagonals_rl:
-            if len(d) >= self.s:
-                diagonals.append(d)
-
-        # logging.info('diagonals', diagonals)
-
-        for i in range(len(diagonals)):
-            prev = '?'
-            for j in range(len(diagonals[i])):
-                curr = self.current_state[y][x]
-
-                if curr == 'X' and prev == 'O' or curr == 'O' and prev == 'X':
-                    score += UNIT * BLOCK_WEIGHT
-                elif curr == 'O' and prev == curr:
-                    score += UNIT * running_o_ctr
-                elif curr == 'X' and prev == curr:
-                    score -= UNIT * running_x_ctr
-
-                if curr == 'X':
-                    running_x_ctr += 1
-                else:
-                    running_x_ctr = 1
-
-                if curr == 'O':
-                    running_o_ctr += 1
-                else:
-                    running_o_ctr = 1
-
-                prev = curr
-
-            # check from both sides
-            prev = '?'
-            for j in range(len(diagonals[i]) - 1, -1, -1):
-                curr = self.current_state[y][x]
-
-                if curr == 'X' and prev == 'O' or curr == 'O' and prev == 'X':
-                    score += UNIT * BLOCK_WEIGHT
-                elif curr == 'O' and prev == curr:
-                    score += UNIT * running_o_ctr
-                elif curr == 'X' and prev == curr:
-                    score -= UNIT * running_x_ctr
-
-                if curr == 'X':
-                    running_x_ctr += 1
-                else:
-                    running_x_ctr = 1
-
-                if curr == 'O':
-                    running_o_ctr += 1
-                else:
-                    running_o_ctr = 1
-
-                prev = curr
 
         return score
 

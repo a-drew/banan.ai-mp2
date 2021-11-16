@@ -16,7 +16,7 @@ class TurnStats:
         self.eval_count = 0
         self.eval_cache_hit = 0
         self.eval_by_depth = {}
-        self.avg_recursion_depth = 'TODO'
+        self.avg_recursion_depth = 0
 
     @property
     def avg_eval_depth(self):

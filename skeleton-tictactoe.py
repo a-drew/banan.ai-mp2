@@ -8,6 +8,33 @@ import logging
 from itertools import groupby
 
 
+class TurnStats:
+    def __init__(self):
+        self.elapsed = 0
+        self.eval_count = 0
+        self.eval_cache_hit = 0
+        self.eval_by_depth = {}
+        self.avg_recursion_depth = 'TODO'
+
+    @property
+    def avg_eval_depth(self):
+        sum = 0
+        leafs = 0
+        for depth, count in enumerate(self.eval_by_depth):
+            sum += depth * count
+            leafs += count
+        return sum / leafs
+
+    def summary(self):
+        logging.info(F'\n')
+        logging.info(F'i   Evaluation time: {self.elapsed}s')
+        logging.info(F'ii  Heuristic evaluations: {self.eval_count} (cache hits:{self.eval_cache_hit})')
+        logging.info(F'iii Evaluations by depth: {self.eval_by_depth}')
+        logging.info(F'iv  Average evaluation depth: {self.avg_eval_depth}')
+        logging.info(F'v   Average recursion depth: {self.avg_recursion_depth}')
+        logging.info(F'\n')
+
+
 class Player:
     MINIMAX = 0
     ALPHABETA = 1
@@ -82,7 +109,8 @@ class Game:
     # Your program should be able to make either player be a human or the AI. This means that you should
     # be able to run your program in all 4 combinations of players: H-H, H-AI, AI-H and AI-AI
 
-    def __init__(self, n=3, b=0, s=3, blocs=None, a=None, d1=10, d2=10, t=15, recommend=True, gametrace_logfile=None):
+    def __init__(self, n=3, b=0, s=3, blocs=None, a=None, d1=3, d2=3, t=1500000, recommend=True,
+                 gametrace_logfile=None):
         self.n = n  # size of board
         self.s = s  # size of winning line
         self.b = b  # size of blocs
@@ -92,39 +120,25 @@ class Game:
         self.d2 = d2  # p2 search depth
         self.t = t  # search timeout
         self.recommend = recommend  # recommend human moves
-        self.initialize_game()
         # helpers for determining diagonals to read
         self.max_diag = 2 * self.n - 1 - 2 * (self.s - 1)
         self.split_diag = int((self.max_diag - 1) / 2)
 
         if gametrace_logfile is not None:
-            logging.basicConfig(level=logging.INFO,
-                                format='%(message)s',
-                                filename=gametrace_logfile,
-                                filemode='w')
-            self.draw_board(log=True)
+            logging.basicConfig(level=logging.INFO, format='%(message)s', filename=gametrace_logfile, filemode='w')
             console = logging.StreamHandler()
             console.setLevel(logging.INFO)
             logging.getLogger().addHandler(console)
-            logging.info('using log file: ' + gametrace_logfile)
+            logging.debug('DEBUG: gametrace will be written to ' + gametrace_logfile)
         else:
             # print info level logging to console
-            logging.basicConfig(level=logging.INFO, format='%(message)s')
-            logging.info('not using log file')
+            logging.basicConfig(level=logging.DEBUG, format='%(message)s')
+            logging.debug('DEBUG: gametrace output is disabled!')
 
-        # print/log initial configuration info
-        ## game params
-        logging.info('n: ' + str(self.n))
-        logging.info('b: ' + str(self.b))
-        logging.info('s: ' + str(self.s))
-        logging.info('t: ' + str(self.t))
-        ## position of blocs
-        logging.info('blocs: ' + str(blocs))
+        self.initialize_game()
 
-        ## parameters of each player (others in 'play' method)
-        logging.info('d1: ' + str(self.d1))
-        logging.info('d2: ' + str(self.d2))
-        logging.info('recommendations enabled: ' + str(recommend))
+    def __str__(self):
+        return F'n: {self.n} b: {self.b} s: {self.s} t: {self.t} \nblocs: {self.blocs} \nrecommend: {self.recommend}'
 
     def validate(self):
         if self.n > 10 or self.n < 3:
@@ -156,24 +170,33 @@ class Game:
                     row.append('.')
             board.append(row)
         self.current_state = board
+        # cache board evaluations
+        self.state_end = {}
+        self.state_lines = {}
+        self.state_eval1 = {}
+        self.state_eval2 = {}
+        # winning lines
+        self.xs = 'X' * self.s
+        self.os = 'O' * self.s
+        logging.info(self)
 
-    def draw_board(self, log=False):
+    def draw_board(self, board=None):
+        if board is None:
+            board = self.current_state
+        size = self.n
+
         buffer = ''
-        buffer += "  " + "".join(self.LETTERS[:self.n]) + '\n'
-        buffer += " +" + "".join(['-' for x in range(self.n)]) + '\n'
+        buffer += "  " + "".join(self.LETTERS[:size]) + '\n'
+        buffer += " +" + "".join(['-' for x in range(size)]) + '\n'
 
-        for y in range(self.n):
+        for y in range(size):
             buffer += F'{y}|'
-            for x in range(self.n):
-                buffer += F'{self.current_state[x][y]}'
+            for x in range(size):
+                buffer += F'{board[x][y]}'
             buffer += '\n'
         buffer += '\n'
 
-        if log:
-            logging.info('Initial board config:')
-            logging.info(buffer)
-        else:
-            print(buffer)
+        logging.info(buffer)
 
     def is_valid(self, px, py):
         if px < 0 or px >= self.n or py < 0 or py >= self.n:
@@ -191,6 +214,9 @@ class Game:
         return True
 
     def read_all_lines(self, callback=None):
+        state_str = str(self.current_state)
+        if callback is None and state_str in self.state_lines:
+            return self.state_lines[state_str]
         lines = []
         # Horizontal & Vertical
         for x in range(self.n):
@@ -248,30 +274,35 @@ class Game:
                     return result
             else:
                 lines.append(line)
+        self.state_lines[state_str] = lines
         if callback:
             return False
         return lines
 
     def is_end(self):
-        xs = 'X' * self.s
-        os = 'O' * self.s
+        state_str = str(self.current_state)
+        if state_str in self.state_end:
+            return self.state_end[state_str]
 
         def check_win(line):
-            nonlocal xs, os
             line = ''.join(line)
-            if xs in line:
+            if self.xs in line:
                 return 'X'
-            elif os in line:
+            elif self.os in line:
                 return 'O'
 
         result = self.read_all_lines(check_win)
         if result:
+            self.state_end[state_str] = result
             return result
         # Is whole board full?
-        if not self.is_full():
-            return None
-        # It's a tie!
-        return '.'
+        if self.is_full():
+            result = '.'  # It's a tie!
+        else:
+            result = None  # continue game
+
+        self.state_end[state_str] = result
+        return result
 
     def check_end(self):
         self.result = self.is_end()
@@ -331,9 +362,9 @@ class Game:
         elif result == '.':
             return (0, x, y)
         elif time.time() - self.search_start > self.t - 0.01:
-            return (self.eval(), x, y)
+            return (self.eval(depth), x, y)
         elif depth is not None and depth <= 0:
-            return (self.eval(), x, y)
+            return (self.eval(depth), x, y)
 
         next_depth = depth - 1 if depth else self.active_player.depth
         for i in range(self.n):
@@ -378,9 +409,9 @@ class Game:
         elif result == '.':
             return (0, x, y)
         elif time.time() - self.search_start > self.t - 0.01:
-            return (self.eval(), x, y)
+            return (self.eval(depth), x, y)
         elif depth is not None and depth <= 0:
-            return (self.eval(), x, y)
+            return (self.eval(depth), x, y)
 
         next_depth = depth - 1 if depth else self.active_player.depth
         for i in range(self.n):
@@ -413,23 +444,33 @@ class Game:
                             beta = value
         return (value, x, y)
 
-    def e1(self):
+    # prioritize chaining and building bigger lines
+    def e1(self, max=None, depth=0):
+        # resize the score to the -1 to +1 range
+        def clamp(number):
+            return number / 10 ** self.s
+
+        # use depth to prioritize less moves
+        if max is None:
+            depth = 0
+        elif not max:
+            depth = -depth
+
+        state_str = str(self.current_state)
+        if state_str in self.state_eval1:
+            self.turn_stats.eval_cache_hit += 1
+            return clamp(self.state_eval1[state_str] + depth)
         score = 0
-        available_moves = 0
         for line in self.read_all_lines():
             groups = groupby(line)
             for label, group in groups:
                 count = sum(1 for _ in group)
-                if label == '.':
-                    available_moves += 1
-                elif label == 'O':
+                if label == 'O':
                     score += 10 ** count
                 elif label == 'X':
                     score -= 10 ** count
-        if available_moves == 0:
-            return -1  # a tie is basically a loss
-        clamp_score = score / 10 ** self.s
-        return clamp_score
+        self.state_eval1[state_str] = score
+        return clamp(score + depth)
 
     # prioritize blocking the other (X) player
     def e2(self):
@@ -438,7 +479,7 @@ class Game:
         # assuming downwards pointing arrows
         diagonals_rl = [[] for i in range(total_lines)]
         diagonals_lr = [[] for i in range(total_lines)]
-        UNIT = 100 ** (-1 * self.s) # @TODO: scale down based on s -> *10^(-s)
+        UNIT = 100 ** (-1 * self.s)  # @TODO: scale down based on s -> *10^(-s)
         BLOCK_WEIGHT = 5
         running_x_ctr = 1
         running_o_ctr = 1
@@ -447,7 +488,7 @@ class Game:
         for x in range(len(self.current_state)):
             prev = '?'
             for y in range(len(self.current_state)):
-                #print(str(x) + ':' + str(y) + ' -> ' + str(self.current_state[x][y]))
+                # logging.info(str(x) + ':' + str(y) + ' -> ' + str(self.current_state[x][y]))
                 curr = self.current_state[x][y]
                 diagonals_rl[x + y].append(self.current_state[x][y])
                 diagonals_lr[(self.n - 1) + x - y].append(self.current_state[x][y])
@@ -473,7 +514,7 @@ class Game:
             # check from both sides
             prev = '?'
             for y in range(len(self.current_state) - 1, -1, -1):
-                #print(str(x) + ':' + str(y) + ' -> ' + str(self.current_state[x][y]))
+                # logging.info(str(x) + ':' + str(y) + ' -> ' + str(self.current_state[x][y]))
                 curr = self.current_state[x][y]
 
                 if curr == 'X' and prev == 'O' or curr == 'O' and prev == 'X':
@@ -495,16 +536,14 @@ class Game:
 
                 prev = curr
 
-
-
-        #print('diagonals_rl', diagonals_rl)
-        #print('diagonals_lr', diagonals_lr)
+        # logging.info('diagonals_rl', diagonals_rl)
+        # logging.info('diagonals_lr', diagonals_lr)
 
         # horizontal check
         for x in range(len(self.current_state)):
             prev = '?'
             for y in range(len(self.current_state)):
-                #print(str(y) + ':' + str(x) + ' -> ' + str(self.current_state[y][x]))
+                # logging.info(str(y) + ':' + str(x) + ' -> ' + str(self.current_state[y][x]))
                 curr = self.current_state[y][x]
 
                 if curr == 'X' and prev == 'O' or curr == 'O' and prev == 'X':
@@ -529,7 +568,7 @@ class Game:
             # check from both sides
             prev = '?'
             for y in range(len(self.current_state) - 1, -1, -1):
-                #print(str(y) + ':' + str(x) + ' -> ' + str(self.current_state[y][x]))
+                # logging.info(str(y) + ':' + str(x) + ' -> ' + str(self.current_state[y][x]))
                 curr = self.current_state[y][x]
 
                 if curr == 'X' and prev == 'O' or curr == 'O' and prev == 'X':
@@ -562,7 +601,7 @@ class Game:
             if len(d) >= self.s:
                 diagonals.append(d)
 
-        #print('diagonals', diagonals)
+        # logging.info('diagonals', diagonals)
 
         for i in range(len(diagonals)):
             prev = '?'
@@ -614,9 +653,17 @@ class Game:
 
         return score
 
-    def eval(self):
-        # @TODO: choosing strategy for whether use e1 or e2
-        return self.e2()
+    def eval(self, max, depth=0):
+        real_depth = self.max_depth - depth
+        self.turn_stats.eval_count += 1
+        if real_depth in self.turn_stats.eval_by_depth:
+            self.turn_stats.eval_by_depth[real_depth] += 1
+        else:
+            self.turn_stats.eval_by_depth[real_depth] = 1
+        if self.active_player.heuristic == Player.E1:
+            return self.e1(max, depth)
+        elif self.active_player.heuristic == Player.E2:
+            return self.e2()
 
     def play(self, algo=None, player_x=Player('X'), player_o=Player('O')):
         # self.a allows for override of algo
@@ -636,12 +683,12 @@ class Game:
             player_o.depth = self.d2
 
         # player X always goes first
-        self.active_player = player_x
-        self.player_x = player_x
+        self.active_player = self.player_x = player_x
         self.player_o = player_o
 
         player_x.summary()
         player_o.summary()
+        logging.info(F'\n')
 
         while True:
             self.draw_board()
@@ -649,14 +696,15 @@ class Game:
             if self.check_end():
                 return
 
+            self.turn_stats = TurnStats()
             self.search_start = start = time.time()
             max = self.active_player == player_o
-            depth = (self.d2 if max else self.d1)
+            self.max_depth = depth = self.active_player.depth
             if self.active_player.use_minimax():
                 (m, x, y) = self.minimax(max=max, depth=depth)
             else:  # algo == self.ALPHABETA
                 (m, x, y) = self.alphabeta(max=max, depth=depth)
-            t = time.time() - start
+            self.turn_stats.elapsed = t = time.time() - start
             if t > self.t - 0.01:
                 logging.info('*** Search ran out of time ***')
                 logging.info(F'Selected random move for {self.active_player}: {self.LETTERS[x]}{y}')
@@ -666,12 +714,12 @@ class Game:
 
             if self.active_player.is_human():
                 if self.recommend:
-                    logging.info(F'Evaluation time: {t}s')
                     logging.info(F'Recommended move: {self.LETTERS[x]}{y} (score: {m})')
                 (x, y) = self.input_move()
             if self.active_player.is_ai():
-                logging.info(F'Evaluation time: {t}s')
                 logging.info(F'Player {self.active_player} under AI control plays: {self.LETTERS[x]}{y} (score: {m})')
+
+            self.turn_stats.summary()
             self.current_state[x][y] = self.active_player.symbol
             self.switch_player()
 
@@ -684,8 +732,9 @@ def main():
 
     # @TODO: add prompt to choose game type
     if len(sys.argv) == 1:
-        g = Game(recommend=True)
-        g.play(algo=Game.ALPHABETA, player_x=Player('X', t=Player.AI), player_o=Player('O', t=Player.AI))
+        # g = Game(n=5, s=3, blocs=['B1', 'a2', 'C1', 'A5', 'E1', 'D2', 'B4', 'A0', 'A3', 'C4'], recommend=True)
+        g = Game(n=4, s=3, recommend=True)
+        g.play(algo=Game.ALPHABETA, player_x=Player('X', t=Player.HUMAN), player_o=Player('O', t=Player.AI))
         g.play(algo=Game.MINIMAX, player_x=Player('X', t=Player.AI), player_o=Player('O', t=Player.HUMAN))
     elif len(sys.argv) >= 1:
         if sys.argv[1] == '-h' or sys.argv[1] == '--help':

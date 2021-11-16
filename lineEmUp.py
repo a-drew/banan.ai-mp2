@@ -11,6 +11,8 @@ import random
 class TurnStats:
     def __init__(self):
         self.elapsed = 0
+        self.end_count = 0
+        self.end_cache_hit = 0
         self.eval_count = 0
         self.eval_cache_hit = 0
         self.eval_by_depth = {}
@@ -31,6 +33,7 @@ class TurnStats:
         return F'\n' \
             + F'i   Evaluation time: {self.elapsed}s' \
             + F'\nii  Heuristic evaluations: {self.eval_count} (cached:{self.eval_cache_hit})' \
+            + F' + Endgames found: {self.end_count} (cached:{self.end_cache_hit})' \
             + F'\niii Evaluations by depth: {self.eval_by_depth}' \
             + F'\niv  Average evaluation depth: {self.avg_eval_depth}' \
             + F'\nv   Average recursion depth: {self.avg_recursion_depth}' \
@@ -114,7 +117,7 @@ class Game:
     # Your program should be able to make either player be a human or the AI. This means that you should
     # be able to run your program in all 4 combinations of players: H-H, H-AI, AI-H and AI-AI
 
-    def __init__(self, n=3, b=0, s=3, blocs=None, a=None, d1=10, d2=10, t=1500000, recommend=True,
+    def __init__(self, n=3, b=0, s=3, blocs=None, a=None, d1=5, d2=5, t=10, recommend=True,
                  gametrace_logfile=None):
         self.n = n  # size of board
         self.s = s  # size of winning line
@@ -124,6 +127,7 @@ class Game:
         self.d1 = d1  # p1 search depth
         self.d2 = d2  # p2 search depth
         self.t = t  # search timeout
+        self.leeway = 0.01
         self.recommend = recommend  # recommend human moves
         # helpers for determining diagonals to read
         self.max_diag = 2 * self.n - 1 - 2 * (self.s - 1)
@@ -218,13 +222,6 @@ class Game:
         else:
             return True
 
-    def is_full(self):
-        for i in range(self.n):
-            for j in range(self.n):
-                if self.current_state[i][j] == '.':
-                    return False
-        return True
-
     def read_all_lines(self, callback=None):
         state_str = str(self.current_state)
         if callback is None and state_str in self.state_lines:
@@ -237,6 +234,8 @@ class Game:
             for y in range(self.n):
                 row.append(self.current_state[y][x])
                 col.append(self.current_state[x][y])
+            lines.append(row)
+            lines.append(col)
             if callback:
                 result = callback(col)
                 if result:
@@ -244,9 +243,6 @@ class Game:
                 result = callback(row)
                 if result:
                     return result
-            else:
-                lines.append(row)
-                lines.append(col)
         # Main Diagonal
         for d in range(self.max_diag):
             if d < self.split_diag:
@@ -261,12 +257,11 @@ class Game:
                 line.append(self.current_state[x][y])
                 x += 1
                 y += 1
+            lines.append(line)
             if callback:
                 result = callback(line)
                 if result:
                     return result
-            else:
-                lines.append(line)
         # Second Diagonal
         for d in range(self.max_diag):
             if d <= self.split_diag:
@@ -280,21 +275,35 @@ class Game:
                 line.append(self.current_state[x][y])
                 x += 1
                 y -= 1
+            lines.append(line)
             if callback:
                 result = callback(line)
                 if result:
                     return result
-            else:
-                lines.append(line)
         self.state_lines[state_str] = lines
         if callback:
             return False
         return lines
 
-    def is_end(self):
+    def is_full(self):
+        for line in self.read_all_lines():
+            if '.' in line:
+                return False
+        return True
+
+    def is_end(self, depth=None):
         state_str = str(self.current_state)
         if state_str in self.state_end:
-            return self.state_end[state_str]
+            # count is_end evaluations if they reach an endgame state
+            result = self.state_end[state_str]
+            if result is not None:
+                self.turn_stats.end_count += 1
+                self.turn_stats.end_cache_hit += 1
+                if depth in self.turn_stats.eval_by_depth:
+                    self.turn_stats.eval_by_depth[depth] += 1
+                elif depth:
+                    self.turn_stats.eval_by_depth[depth] = 1
+            return result
 
         def check_win(line):
             line = ''.join(line)
@@ -305,6 +314,12 @@ class Game:
 
         result = self.read_all_lines(check_win)
         if result:
+            # count is_end evaluations if they reach an endgame state
+            self.turn_stats.end_count += 1
+            if depth in self.turn_stats.eval_by_depth:
+                self.turn_stats.eval_by_depth[depth] += 1
+            elif depth:
+                self.turn_stats.eval_by_depth[depth] = 1
             self.state_end[state_str] = result
             return result
         # Is whole board full?
@@ -366,38 +381,39 @@ class Game:
             value = -2
         x = None
         y = None
-        result = self.is_end()
-        if result == 'X':
-            return (-1, x, y)
-        elif result == 'O':
-            return (1, x, y)
-        elif result == '.':
-            return (0, x, y)
-        elif time.time() - self.search_start > self.t - 0.01:
-            return (self.eval(depth), x, y)
-        elif depth is not None and depth <= 0:
-            return (self.eval(depth), x, y)
+        result = self.is_end(self.max_depth - depth)
 
+        if result == 'X':
+            return -1, x, y, self.max_depth - depth
+        elif result == 'O':
+            return 1, x, y, self.max_depth - depth
+        elif result == '.':
+            return 0, x, y, self.max_depth - depth
+        elif time.time() - self.search_start > self.t - self.leeway or (depth is not None and depth <= 0):
+            return self.eval(max, depth), x, y, self.max_depth - depth
+
+        children = []
         next_depth = depth - 1 if depth else self.active_player.depth
         for i in range(self.n):
             for j in range(self.n):
                 if self.current_state[i][j] == '.':
                     if max:
                         self.current_state[i][j] = 'O'
-                        (v, _, _) = self.minimax(max=False, depth=next_depth)
+                        (v, _, _, adr) = self.minimax(max=False, depth=next_depth)
                         if v > value:
                             value = v
                             x = i
                             y = j
                     else:
                         self.current_state[i][j] = 'X'
-                        (v, _, _) = self.minimax(max=True, depth=next_depth)
+                        (v, _, _, adr) = self.minimax(max=True, depth=next_depth)
                         if v < value:
                             value = v
                             x = i
                             y = j
                     self.current_state[i][j] = '.'
-        return (value, x, y)
+                    children.append(adr)
+        return value, x, y, sum(children) / len(children)
 
     def alphabeta(self, alpha=-2, beta=2, max=False, depth=None):
         # Minimizing for 'X' and maximizing for 'O'
@@ -412,60 +428,60 @@ class Game:
             value = -2
         x = None
         y = None
-        result = self.is_end()
+        result = self.is_end(self.max_depth - depth)
 
         if result == 'X':
-            return (-1, x, y)
+            return -1, x, y, self.max_depth - depth
         elif result == 'O':
-            return (1, x, y)
+            return 1, x, y, self.max_depth - depth
         elif result == '.':
-            return (0, x, y)
-        elif time.time() - self.search_start > self.t - 0.01:
-            return (self.eval(depth), x, y)
-        elif depth is not None and depth <= 0:
-            return (self.eval(depth), x, y)
+            return 0, x, y, self.max_depth - depth
+        elif time.time() - self.search_start > self.t - self.leeway or (depth is not None and depth <= 0):
+            return self.eval(max, depth), x, y, self.max_depth - depth
 
+        children = []
         next_depth = depth - 1 if depth else self.active_player.depth
         for i in range(self.n):
             for j in range(self.n):
                 if self.current_state[i][j] == '.':
                     if max:
                         self.current_state[i][j] = 'O'
-                        (v, _, _) = self.alphabeta(alpha, beta, max=False, depth=next_depth)
+                        (v, _, _, adr) = self.alphabeta(alpha, beta, max=False, depth=next_depth)
                         if v > value:
                             value = v
                             x = i
                             y = j
                     else:
                         self.current_state[i][j] = 'X'
-                        (v, _, _) = self.alphabeta(alpha, beta, max=True, depth=next_depth)
+                        (v, _, _, adr) = self.alphabeta(alpha, beta, max=True, depth=next_depth)
                         if v < value:
                             value = v
                             x = i
                             y = j
                     self.current_state[i][j] = '.'
+                    children.append(adr)
                     if max:
                         if value >= beta:
-                            return (value, x, y)
+                            return value, x, y, sum(children) / len(children)
                         if value > alpha:
                             alpha = value
                     else:
                         if value <= alpha:
-                            return (value, x, y)
+                            return value, x, y, sum(children) / len(children)
                         if value < beta:
                             beta = value
-        return (value, x, y)
+        return value, x, y, sum(children) / len(children)
 
     # prioritize chaining and building bigger lines
-    def e1(self, max=None, depth=0):
+    def e1(self, maximize=None, depth=0):
         # resize the score to the -1 to +1 range
         def clamp(number):
             return number / 10 ** self.s
 
         # use depth to prioritize less moves
-        if max is None:
+        if maximize is None:
             depth = 0
-        elif not max:
+        elif not maximize:
             depth = -depth
 
         state_str = str(self.current_state)
@@ -474,6 +490,11 @@ class Game:
             return clamp(self.state_eval1[state_str] + depth)
         score = 0
         for line in self.read_all_lines():
+            # favor lines without blocks
+            if 'X*' in line or '*X' in line:
+                score += 5
+            if 'O*' in line or '*O' in line:
+                score -= 5
             groups = groupby(line)
             for label, group in groups:
                 count = sum(1 for _ in group)
@@ -514,7 +535,7 @@ class Game:
 
         return score
 
-    def eval(self, max, depth=0):
+    def eval(self, maximize, depth):
         real_depth = self.max_depth - depth
         self.turn_stats.eval_count += 1
         if real_depth in self.turn_stats.eval_by_depth:
@@ -522,7 +543,7 @@ class Game:
         else:
             self.turn_stats.eval_by_depth[real_depth] = 1
         if self.active_player.heuristic == Player.E1:
-            return self.e1(max, depth)
+            return self.e1(maximize, depth)
         elif self.active_player.heuristic == Player.E2:
             return self.e2()
 
@@ -564,16 +585,17 @@ class Game:
                 max = self.active_player == player_o
                 self.max_depth = depth = self.active_player.depth
                 if self.active_player.use_minimax():
-                    (m, x, y) = self.minimax(max=max, depth=depth)
+                    (m, x, y, adr) = self.minimax(max=max, depth=depth)
                 else:  # algo == self.ALPHABETA
-                    (m, x, y) = self.alphabeta(max=max, depth=depth)
+                    (m, x, y, adr) = self.alphabeta(max=max, depth=depth)
                 self.turn_stats.elapsed = t = time.time() - start
-                if t > self.t - 0.01:
-                    logging.info('*** Search ran out of time ***')
-                    logging.info(F'Selected random move for {self.active_player}: {self.LETTERS[x]}{y}')
-                elif t > self.t:
+                self.turn_stats.avg_recursion_depth = adr
+                if self.active_player.is_ai() and t >= self.t:
                     logging.info(F'{self.active_player} lost, they ran out of time!')
                     break
+                elif self.t > t > self.t - 0.1:
+                    logging.info('*** Search ran out of time ***')
+                    logging.info(F'Selected random move for {self.active_player}: {self.LETTERS[x]}{y}')
 
                 if self.active_player.is_ai():
                     logging.info(
@@ -600,8 +622,8 @@ def main():
     # @TODO: add prompt to choose game type
     if len(sys.argv) == 1:
         # g = Game(n=5, s=3, blocs=['B1', 'a2', 'C1', 'A5', 'E1', 'D2', 'B4', 'A0', 'A3', 'C4'], recommend=True)
-        g = Game(n=4, s=3, recommend=True)
-        g.play(algo=Game.ALPHABETA, player_x=Player('X', t=Player.HUMAN), player_o=Player('O', t=Player.AI))
+        g = Game(n=5, s=4, blocs=[(2, 3)], t=8, d1=4, d2=8)
+        g.play(algo=Game.ALPHABETA, player_x=Player('X', t=Player.HUMAN), player_o=Player('O', t=Player.HUMAN))
         g.play(algo=Game.MINIMAX, player_x=Player('X', t=Player.AI), player_o=Player('O', t=Player.HUMAN))
     elif len(sys.argv) >= 1:
         if sys.argv[1] == '-h' or sys.argv[1] == '--help':
@@ -643,7 +665,7 @@ def main():
                             blocs.append(coord)
 
                     g.tweak(blocs=blocs)
-                    
+
                     if i % 2 == 0:
                         g.play(algo=Game.ALPHABETA, player_x=player_x, player_o=player_o)
                     else:

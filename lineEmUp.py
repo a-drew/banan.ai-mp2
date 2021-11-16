@@ -8,6 +8,91 @@ import logging
 from itertools import groupby
 import random
 
+
+class GameStats:
+    def __init__(self):
+        self.turns = []
+
+    @property
+    def total_moves(self):
+        return len(self.turns)
+
+    @property
+    def avg_time(self):
+        s = 0
+        for turn in self.turns:
+            s += turn.elapsed
+        return s / self.total_moves
+
+    @property
+    def end_count(self):
+        s = 0
+        for turn in self.turns:
+            s += turn.end_count
+        return s
+
+    @property
+    def end_cache_hit(self):
+        s = 0
+        for turn in self.turns:
+            s += turn.end_cache_hit
+        return s
+
+    @property
+    def eval_count(self):
+        s = 0
+        for turn in self.turns:
+            s += turn.eval_count
+        return s
+
+    @property
+    def eval_cache_hit(self):
+        s = 0
+        for turn in self.turns:
+            s += turn.eval_cache_hit
+        return s
+
+    @property
+    def eval_by_depth(self):
+        combined_depth_eval = {}
+        for turn in self.turns:
+            combined_depth_eval.update(turn.eval_by_depth)
+        return combined_depth_eval
+
+    @property
+    def avg_recursion_depth(self):
+        s = 0
+        for turn in self.turns:
+            s += turn.avg_recursion_depth
+        return s / self.total_moves
+
+
+    @property
+    def avg_eval_depth(self):
+        s = 0
+        leafs = 0
+        for _, (depth, count) in enumerate(self.eval_by_depth.items()):
+            s += depth * count
+            leafs += count
+        if leafs == 0:
+            return 0
+        return s / leafs
+
+    def __str__(self):
+        return F'\n' \
+            + F'6(b)i   Average evaluation time: {self.avg_time}' \
+            + F'\n6(b)ii  Total heuristic evaluations: {self.eval_count} (cached:{self.eval_cache_hit})' \
+            + F' + Endgames found: {self.end_count} (cached:{self.end_cache_hit})' \
+            + F'\n6(b)iii Evaluations by depth: {self.eval_by_depth}' \
+            + F'\n6(b)iv  Average evaluation depth: {self.avg_eval_depth}' \
+            + F'\n6(b)v   Average recursion depth: {self.avg_recursion_depth}' \
+            + F'\n6(b)vi  Total moves: {self.total_moves}' \
+            + F'\n'
+
+    def summary(self):
+        logging.info(self)
+
+
 class TurnStats:
     def __init__(self):
         self.elapsed = 0
@@ -339,6 +424,7 @@ class Game:
                 logging.info("It's a tie!")
             else:
                 logging.info(F'The winner is {self.result}!')
+            self.game_stats.summary()
             self.initialize_game()
         return self.result
 
@@ -567,6 +653,7 @@ class Game:
         # player X always goes first
         self.active_player = self.player_x = player_x
         self.player_o = player_o
+        self.game_stats = GameStats()
 
         player_x.summary()
         player_o.summary()
@@ -581,6 +668,7 @@ class Game:
             x = y = -1
             if self.recommend or self.active_player.is_ai():
                 self.turn_stats = TurnStats()
+                self.game_stats.turns.append(self.turn_stats)
                 self.search_start = start = time.time()
                 max = self.active_player == player_o
                 self.max_depth = depth = self.active_player.depth
@@ -622,8 +710,8 @@ def main():
     # @TODO: add prompt to choose game type
     if len(sys.argv) == 1:
         # g = Game(n=5, s=3, blocs=['B1', 'a2', 'C1', 'A5', 'E1', 'D2', 'B4', 'A0', 'A3', 'C4'], recommend=True)
-        g = Game(n=5, s=4, blocs=[(2, 3)], t=8, d1=4, d2=8)
-        g.play(algo=Game.ALPHABETA, player_x=Player('X', t=Player.HUMAN), player_o=Player('O', t=Player.HUMAN))
+        g = Game(n=3, s=3, blocs=[(2, 3)], t=8, d1=4, d2=8)
+        g.play(algo=Game.ALPHABETA, player_x=Player('X', t=Player.AI), player_o=Player('O', t=Player.AI))
         g.play(algo=Game.MINIMAX, player_x=Player('X', t=Player.AI), player_o=Player('O', t=Player.HUMAN))
     elif len(sys.argv) >= 1:
         if sys.argv[1] == '-h' or sys.argv[1] == '--help':

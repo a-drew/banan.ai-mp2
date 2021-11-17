@@ -585,11 +585,6 @@ class Game:
             return clamp(self.state_eval1[state_str] + depth)
         score = 0
         for line in self.read_all_lines():
-            # favor lines without blocks
-            if 'X*' in line or '*X' in line:
-                score += 5
-            if 'O*' in line or '*O' in line:
-                score -= 5
             groups = groupby(line)
             for label, group in groups:
                 count = sum(1 for _ in group)
@@ -605,7 +600,7 @@ class Game:
         score = 0
         total_lines = self.n * 2 - 1
         # assuming downwards pointing arrows
-        UNIT = 100 ** (-1 * self.s)  # @TODO: scale down based on s -> *10^(-s)
+        UNIT = 100 ** (-1 * self.s)
         BLOCK_WEIGHT = 5
 
         lines = self.read_all_lines()
@@ -619,6 +614,7 @@ class Game:
                     score += UNIT
                 elif not (curr == prev):
                     score += UNIT * BLOCK_WEIGHT
+                prev = curr
             prev = '?'
             for curr in reversed(line):
                 if curr == prev and curr == 'X':
@@ -627,6 +623,7 @@ class Game:
                     score += UNIT
                 elif not (curr == prev):
                     score += UNIT * BLOCK_WEIGHT
+                prev = curr
 
         return score
 

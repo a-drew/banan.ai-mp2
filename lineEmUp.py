@@ -802,7 +802,7 @@ def main():
         # default values
         recommend = False
         args_present = [False, False, False]
-        player_x = player_y = None
+        player_x = player_o = None
         algo_x = algo_y = Game.ALPHABETA
         s = n = 3
         b = 0

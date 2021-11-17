@@ -57,7 +57,14 @@ class GameStats:
         combined_depth_eval = {}
         for turn in self.turns:
             combined_depth_eval.update(turn.eval_by_depth)
-        return combined_depth_eval
+        return dict(sorted(combined_depth_eval.items(), reverse=True))
+
+    @property
+    def avg_eval_by_depth(self):
+        avg_depth_eval = self.eval_by_depth
+        for depth in avg_depth_eval:
+            avg_depth_eval[depth] = avg_depth_eval[depth] / self.total_moves
+        return avg_depth_eval
 
     @property
     def avg_recursion_depth(self):
@@ -65,7 +72,6 @@ class GameStats:
         for turn in self.turns:
             s += turn.avg_recursion_depth
         return s / self.total_moves
-
 
     @property
     def avg_eval_depth(self):
@@ -83,7 +89,8 @@ class GameStats:
             + F'6(b)i   Average evaluation time: {self.avg_time}' \
             + F'\n6(b)ii  Total heuristic evaluations: {self.eval_count} (cached:{self.eval_cache_hit})' \
             + F' + Endgames found: {self.end_count} (cached:{self.end_cache_hit})' \
-            + F'\n6(b)iii Evaluations by depth: {self.eval_by_depth}' \
+            + F'\n6(b)iii Total Evaluations by depth: {self.eval_by_depth}' \
+            + F'\n6(b)iii Average Evaluations by depth: {self.avg_eval_by_depth}' \
             + F'\n6(b)iv  Average evaluation depth: {self.avg_eval_depth}' \
             + F'\n6(b)v   Average recursion depth: {self.avg_recursion_depth}' \
             + F'\n6(b)vi  Total moves: {self.total_moves}' \
@@ -115,11 +122,13 @@ class TurnStats:
         return sum / leafs
 
     def __str__(self):
+        eval_by_depth = dict(sorted(self.eval_by_depth.items(), reverse=True))
+
         return F'\n' \
             + F'i   Evaluation time: {self.elapsed}s' \
             + F'\nii  Heuristic evaluations: {self.eval_count} (cached:{self.eval_cache_hit})' \
             + F' + Endgames found: {self.end_count} (cached:{self.end_cache_hit})' \
-            + F'\niii Evaluations by depth: {self.eval_by_depth}' \
+            + F'\niii Evaluations by depth: {eval_by_depth}' \
             + F'\niv  Average evaluation depth: {self.avg_eval_depth}' \
             + F'\nv   Average recursion depth: {self.avg_recursion_depth}' \
             + F'\n'
@@ -212,7 +221,7 @@ class Game:
         self.d1 = d1  # p1 search depth
         self.d2 = d2  # p2 search depth
         self.t = t  # search timeout
-        self.leeway = 0.1
+        self.leeway = 0.05
         self.recommend = recommend  # recommend human moves
         # helpers for determining diagonals to read
         self.max_diag = 2 * self.n - 1 - 2 * (self.s - 1)
@@ -239,7 +248,7 @@ class Game:
         self.blocs = [] if blocs is None else blocs
 
     def __str__(self):
-        return F'n: {self.n} b: {self.b} s: {self.s} t: {self.t} \nblocs: {self.blocs} \nrecommend: {self.recommend}'
+        return F'n: {self.n} b: {self.b} s: {self.s} t: {self.t} \nblocs: {self.blocs} \nrecommend: {self.recommend}\n'
 
     def validate(self):
         if self.n > 10 or self.n < 3:
@@ -709,10 +718,8 @@ def main():
 
     # @TODO: add prompt to choose game type
     if len(sys.argv) == 1:
-        # g = Game(n=5, s=3, blocs=['B1', 'a2', 'C1', 'A5', 'E1', 'D2', 'B4', 'A0', 'A3', 'C4'], recommend=True)
-        g = Game(n=5, s=4, blocs=[(2, 3)], t=8, d1=4, d2=8)
-        g.play(algo=Game.ALPHABETA, player_x=Player('X', t=Player.AI), player_o=Player('O', t=Player.AI))
-        g.play(algo=Game.MINIMAX, player_x=Player('X', t=Player.AI), player_o=Player('O', t=Player.HUMAN))
+        g = Game(n=7, blocs=[(0, 2)], s=6, d1=3, d2=4, t=5, a=False)
+        g.play(algo=Game.ALPHABETA, player_x=Player('X', t=Player.AI, h=Player.E1), player_o=Player('O', t=Player.AI, h=Player.E1))
     elif len(sys.argv) >= 1:
         if sys.argv[1] == '-h' or sys.argv[1] == '--help':
             print(USAGE)

@@ -718,7 +718,7 @@ def main():
 
     # @TODO: add prompt to choose game type
     if len(sys.argv) == 1:
-        g = Game(n=7, blocs=[(0, 2)], s=6, d1=3, d2=4, t=5, a=False)
+        g = Game(n=7, blocs=[(0, 2)], s=6, d1=3, d2=4, t=5, a=False, gametrace_logfile='gameTrace-7615.txt')
         g.play(algo=Game.ALPHABETA, player_x=Player('X', t=Player.AI, h=Player.E1), player_o=Player('O', t=Player.AI, h=Player.E1))
     elif len(sys.argv) >= 1:
         if sys.argv[1] == '-h' or sys.argv[1] == '--help':
